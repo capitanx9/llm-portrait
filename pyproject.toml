@@ -1,16 +1,134 @@
 [project]
 name = "llm-portrait"
 version = "0.1.0"
-description = ""
+description = "Django web application that generates personalized profile descriptions using a local LLM."
 authors = [
-    {name = "Kyrylo Triskalo",email = "capitanx9@gmail.com"}
+    { name = "Kyrylo Triskalo", email = "capitanx9@gmail.com" },
 ]
 readme = "README.md"
-requires-python = ">=3.14"
-dependencies = [
-]
+requires-python = ">=3.12,<3.13"
+dependencies = []
 
+[tool.poetry]
+package-mode = false
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.6.0"
+mypy = "^1.11.0"
+django-stubs = { version = "^5.0.0", extras = ["compatible-mypy"] }
+pytest = "^8.3.0"
+pytest-django = "^4.9.0"
+pytest-cov = "^5.0.0"
+factory-boy = "^3.3.0"
+pre-commit = "^3.8.0"
+python-decouple = "^3.8"
+dj-database-url = "^2.2.0"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+
+# ------------------------------------------------------------------------------
+# Ruff
+# ------------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = [
+    ".venv",
+    "migrations",
+    "staticfiles",
+    "media",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "S",   # flake8-bandit (security)
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+    "RUF", # ruff-specific rules
+]
+ignore = [
+    "S101", # use of assert (allowed in tests)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S", "N802"]
+"**/migrations/*.py" = ["E501", "N806"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+
+# ------------------------------------------------------------------------------
+# Mypy
+# ------------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.12"
+strict = false
+warn_unused_ignores = true
+warn_redundant_casts = true
+ignore_missing_imports = true
+exclude = [
+    "migrations",
+    ".venv",
+]
+# django-stubs plugin will be enabled once Django is added (feat/django-skeleton).
+# plugins = ["mypy_django_plugin.main"]
+
+# [tool.django-stubs]
+# django_settings_module = "config.settings.dev"
+
+
+# ------------------------------------------------------------------------------
+# Pytest
+# ------------------------------------------------------------------------------
+[tool.pytest.ini_options]
+minversion = "8.0"
+# DJANGO_SETTINGS_MODULE will be set once Django is added (feat/django-skeleton).
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+
+# ------------------------------------------------------------------------------
+# Coverage
+# ------------------------------------------------------------------------------
+[tool.coverage.run]
+source = ["src"]
+branch = true
+omit = [
+    "*/migrations/*",
+    "*/settings/*",
+    "*/tests/*",
+    "*/__init__.py",
+    "*/manage.py",
+    "*/wsgi.py",
+    "*/asgi.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]
+show_missing = true
+skip_covered = false

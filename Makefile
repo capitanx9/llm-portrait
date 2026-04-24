@@ -1,24 +1,17 @@
-PROJECT_NAME := $(shell basename `pwd`)
-PY_SRC := src/$(subst -,_,$(PROJECT_NAME))
-POETRY := poetry
+.DEFAULT_GOAL := help
 
-install:
-	$(POETRY) install
+include makefiles/vars.mk
+include makefiles/poetry.mk
+include makefiles/lint.mk
+include makefiles/test.mk
+include makefiles/clean.mk
 
-run:
-	$(POETRY) run python -m $(PY_SRC).main
+.PHONY: help check
 
-test:
-	$(POETRY) run pytest -v --disable-warnings
+help: ## Show this help message
+	@printf "Available commands:\n\n"
+	@awk 'BEGIN { FS = ":.*##" } \
+		/^[a-zA-Z_-]+:.*##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 }' \
+		$(MAKEFILE_LIST) | sort
 
-freeze:
-	$(POETRY) lock --no-update
-	$(POETRY) export -f requirements.txt --output requirements.txt
-
-clean:
-	rm -rf __pycache__ .mypy_cache .pytest_cache dist build *.egg-info
-	find . -name "*.pyc" -delete
-	@echo "Clean done."
-
-info:
-	@$(POETRY) env info
+check: lint test ## Run lint and tests (use before pushing)
