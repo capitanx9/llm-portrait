@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.Python
+
+# Virtual environments
+.venv/
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Django
+*.log
+db.sqlite3
+media/
+staticfiles/
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# Testing & coverage
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Linting & type checking
+.ruff_cache/
+.mypy_cache/
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
