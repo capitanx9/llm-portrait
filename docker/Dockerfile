@@ -79,8 +79,8 @@ COPY --from=builder --chown=app:app /build/.venv /app/.venv
 
 COPY --chown=app:app manage.py ./
 COPY --chown=app:app src/ ./src/
-COPY --chown=app:app docker/entrypoint.sh ./
-RUN chmod +x ./entrypoint.sh
+COPY --chown=app:app docker/entrypoint.dev.sh docker/entrypoint.prod.sh ./
+RUN chmod +x ./entrypoint.dev.sh ./entrypoint.prod.sh
 
 USER app
 
@@ -88,12 +88,15 @@ USER app
 # ==============================================================================
 # Entrypoint and command
 #
-# entrypoint.sh runs `migrate` on every container start, then exec's CMD.
-# `exec "$@"` replaces the shell — SIGTERM goes straight to Django on stop.
+# Two entrypoints live in the image; compose picks which to run:
+#   docker-compose.dev.yml  → entrypoint.dev.sh  (migrate only)
+#   docker-compose.prod.yml → entrypoint.prod.sh (migrate + collectstatic)
 #
-# CMD is the default; compose overrides it:
-#   docker-compose.dev.yml  → runserver (hot-reload for dev)
-#   docker-compose.prod.yml → gunicorn (multi-worker for prod, Feature 4)
+# `exec "$@"` inside the script replaces the shell so SIGTERM reaches Django.
+#
+# CMD is the default for `docker run` without compose; compose overrides it:
+#   dev  → runserver  (hot-reload)
+#   prod → gunicorn   (multi-worker)
 # ==============================================================================
-ENTRYPOINT ["/app/entrypoint.sh"]
+ENTRYPOINT ["/app/entrypoint.dev.sh"]
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
