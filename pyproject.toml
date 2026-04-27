@@ -77,15 +77,15 @@ strict = false
 warn_unused_ignores = true
 warn_redundant_casts = true
 ignore_missing_imports = true
+mypy_path = "src"
 exclude = [
     "migrations",
     ".venv",
 ]
-# django-stubs plugin will be enabled once Django is added (feat/django-skeleton).
-# plugins = ["mypy_django_plugin.main"]
+plugins = ["mypy_django_plugin.main"]
 
-# [tool.django-stubs]
-# django_settings_module = "config.settings.dev"
+[tool.django-stubs]
+django_settings_module = "app.config.settings.dev"
 
 
 # ------------------------------------------------------------------------------
@@ -93,7 +93,8 @@ exclude = [
 # ------------------------------------------------------------------------------
 [tool.pytest.ini_options]
 minversion = "8.0"
-# DJANGO_SETTINGS_MODULE will be set once Django is added (feat/django-skeleton).
+DJANGO_SETTINGS_MODULE = "app.config.settings.dev"
+pythonpath = ["src"]
 addopts = [
     "-ra",
     "--strict-markers",
