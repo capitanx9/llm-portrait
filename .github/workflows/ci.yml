@@ -10,6 +10,14 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Shared dummy values for jobs that load Django settings (type-check, test).
+# Lint inherits them too — harmless, ruff doesn't import Django.
+env:
+  SECRET_KEY: ci-not-for-prod
+  DEBUG: "False"
+  ALLOWED_HOSTS: localhost
+  DATABASE_URL: postgres://app:app@localhost:5432/llm_portrait
+
 jobs:
   lint:
     name: Lint (ruff)
@@ -69,6 +77,22 @@ jobs:
   test:
     name: Tests (pytest)
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: llm_portrait
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U app -d llm_portrait"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=10
+
     steps:
       - uses: actions/checkout@v4
 
@@ -90,4 +114,4 @@ jobs:
         run: poetry install --no-interaction
 
       - name: Pytest
-        run: poetry run pytest || [ $? -eq 5 ]
+        run: poetry run pytest
