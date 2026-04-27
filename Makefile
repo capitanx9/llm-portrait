@@ -5,6 +5,8 @@ include makefiles/poetry.mk
 include makefiles/lint.mk
 include makefiles/test.mk
 include makefiles/clean.mk
+include makefiles/docker.mk
+include makefiles/django.mk
 
 .PHONY: help check
 
