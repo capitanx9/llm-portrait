@@ -1,0 +1,99 @@
+# syntax=docker/dockerfile:1.7
+
+# ==============================================================================
+# Builder stage — only builds the .venv. Never reaches the final image.
+#
+# Why a separate stage:
+#   build-essential + libpq-dev are needed to compile psycopg, but useless in
+#   prod. They live here, not in runtime. Final image ~250MB instead of ~800.
+#
+# POETRY_VIRTUALENVS_IN_PROJECT=true — critical:
+#   .venv/ ends up at /build/.venv, so a single COPY moves it into runtime.
+#
+# PYTHONUNBUFFERED=1 — without it `docker logs` lags.
+# PYTHONDONTWRITEBYTECODE=1 — keeps .pyc files out of the image.
+# PIP_NO_CACHE_DIR=1 — pip won't keep downloaded .whl files; smaller layer.
+# POETRY_VERSION=2.3.4 — pin, otherwise builds aren't reproducible.
+# POETRY_NO_INTERACTION=1 — otherwise hangs on interactive prompts in CI.
+# ==============================================================================
+FROM python:3.12-slim AS builder
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    POETRY_VERSION=2.3.4 \
+    POETRY_VIRTUALENVS_IN_PROJECT=true \
+    POETRY_NO_INTERACTION=1
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        curl \
+        libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install "poetry==${POETRY_VERSION}"
+
+WORKDIR /build
+
+# Copy manifests first — Docker caches `poetry install` until they change.
+# 99% of edits are Python files, so deps install reuses the cache.
+COPY pyproject.toml poetry.lock ./
+
+# --no-root: project is not a package, no need to install it.
+# --without dev: ruff/mypy/pytest don't belong in prod (~150MB saved).
+RUN poetry install --no-root --without dev
+
+
+# ==============================================================================
+# Runtime stage — minimal prod image. No Poetry, no compilers, no dev deps.
+#
+# Only .venv from builder is copied here.
+#
+# libpq5, NOT libpq-dev:
+#   libpq-dev is for *compiling* psycopg (lives in builder).
+#   libpq5 is for *running* psycopg (lives here).
+#   That's the whole point of multi-stage.
+#
+# useradd --uid 1000 app + USER app:
+#   Container runs as non-root. If Django gets exploited — no root inside.
+#
+# PATH="/app/.venv/bin:$PATH":
+#   Lets us call `python`/`gunicorn` without full path.
+#   Container-side equivalent of `source .venv/bin/activate`.
+# ==============================================================================
+FROM python:3.12-slim AS runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/app/.venv/bin:$PATH"
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libpq5 \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --uid 1000 app
+
+WORKDIR /app
+
+COPY --from=builder --chown=app:app /build/.venv /app/.venv
+
+COPY --chown=app:app manage.py ./
+COPY --chown=app:app src/ ./src/
+COPY --chown=app:app docker/entrypoint.sh ./
+RUN chmod +x ./entrypoint.sh
+
+USER app
+
+
+# ==============================================================================
+# Entrypoint and command
+#
+# entrypoint.sh runs `migrate` on every container start, then exec's CMD.
+# `exec "$@"` replaces the shell — SIGTERM goes straight to Django on stop.
+#
+# CMD is the default; compose overrides it:
+#   docker-compose.dev.yml  → runserver (hot-reload for dev)
+#   docker-compose.prod.yml → gunicorn (multi-worker for prod, Feature 4)
+# ==============================================================================
+ENTRYPOINT ["/app/entrypoint.sh"]
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
