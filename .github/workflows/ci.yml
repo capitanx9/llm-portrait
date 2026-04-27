@@ -43,6 +43,15 @@ jobs:
   type-check:
     name: Type check (mypy)
     runs-on: ubuntu-latest
+
+    # django-stubs plugin imports app.config.settings.dev, which calls
+    # config("SECRET_KEY") etc. — provide dummy values so settings can load.
+    env:
+      SECRET_KEY: ci-not-for-prod
+      DEBUG: "False"
+      ALLOWED_HOSTS: localhost
+      DATABASE_URL: postgres://app:app@localhost:5432/llm_portrait
+
     steps:
       - uses: actions/checkout@v4
 
