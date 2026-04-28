@@ -1,11 +1,14 @@
-name: Deploy
+name: CD
 
 on:
-  push:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
     branches: [main]
+  workflow_dispatch:
 
 concurrency:
-  group: deploy-${{ github.ref }}
+  group: cd-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
@@ -16,6 +19,7 @@ jobs:
   build-and-push:
     name: Build and push to ECR
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     outputs:
       image-tag: ${{ steps.meta.outputs.tag }}
     steps:
