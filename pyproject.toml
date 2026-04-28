@@ -55,12 +55,14 @@ select = [
     "RUF", # ruff-specific rules
 ]
 ignore = [
-    "S101", # use of assert (allowed in tests)
+    "S101",   # use of assert (allowed in tests)
+    "RUF012", # mutable class attrs need ClassVar — Django Meta convention conflicts
+    "RUF001", # ambiguous unicode (we have intentional Cyrillic in choices labels)
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["S", "N802"]
-"**/migrations/*.py" = ["E501", "N806"]
+"**/migrations/*.py" = ["E501", "N806", "RUF012"]
 
 [tool.ruff.format]
 quote-style = "double"
