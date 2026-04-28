@@ -106,3 +106,23 @@ USER app
 # ==============================================================================
 ENTRYPOINT ["/app/entrypoint.dev.sh"]
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+
+
+# ==============================================================================
+# Builder-dev stage — same as builder but installs dev deps too.
+# Used only by the dev image (pytest, ruff, mypy, factory-boy live here).
+# ==============================================================================
+FROM builder AS builder-dev
+
+RUN poetry install --no-root
+
+
+# ==============================================================================
+# Dev stage — runtime + dev deps. Used by docker-compose.dev.yml.
+# Replaces the .venv from runtime with the one that includes dev deps.
+# ==============================================================================
+FROM runtime AS dev
+
+USER root
+COPY --from=builder-dev --chown=app:app /build/.venv /app/.venv
+USER app
