@@ -82,6 +82,11 @@ COPY --chown=app:app src/ ./src/
 COPY --chown=app:app docker/entrypoint.dev.sh docker/entrypoint.prod.sh ./
 RUN chmod +x ./entrypoint.dev.sh ./entrypoint.prod.sh
 
+# Pre-create staticfiles dir with the right owner so the named volume mount
+# inherits ownership from this directory. Otherwise the volume comes up
+# owned by root and `collectstatic` fails with PermissionError.
+RUN mkdir -p /app/staticfiles && chown -R app:app /app/staticfiles
+
 USER app
 
 
