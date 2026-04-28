@@ -82,6 +82,6 @@ jobs:
 
       - name: Curl /health/
         run: |
-          curl -fsS --max-time 30 http://${{ secrets.EC2_HOST }}/health/ \
+          curl -fsS --max-time 30 https://${{ secrets.EC2_HOST_DOMAIN }}/health/ \
             | tee /tmp/health.json
           grep -q '"status":\s*"ok"' /tmp/health.json
