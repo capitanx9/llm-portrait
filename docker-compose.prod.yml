@@ -2,7 +2,7 @@ services:
   web:
     image: ${ECR_REGISTRY}/${ECR_REPOSITORY}:latest
     entrypoint: ["/app/entrypoint.prod.sh"]
-    command: gunicorn app.config.wsgi:application --bind 0.0.0.0:8000 --workers 3 --access-logfile - --error-logfile -
+    command: python -m gunicorn app.config.wsgi:application --bind 0.0.0.0:8000 --workers 3 --access-logfile - --error-logfile -
     env_file: .env
     volumes:
       - static_volume:/app/staticfiles
