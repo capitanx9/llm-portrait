@@ -65,7 +65,7 @@ jobs:
             aws ecr get-login-password --region ${{ secrets.AWS_REGION }} \
               | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
             docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d --no-deps web nginx
+            docker compose -f docker-compose.prod.yml up -d
             docker image prune -f
 
   smoke-test:
