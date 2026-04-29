@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}Выход — LLM Portrait{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <div class="card shadow-sm">
+            <div class="card-body p-4 text-center">
+                <h1 class="h4 mb-4">Выйти из аккаунта?</h1>
+                <form method="post">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger w-100">Выйти</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
