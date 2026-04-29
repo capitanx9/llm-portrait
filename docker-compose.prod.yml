@@ -10,12 +10,41 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+      mailhog:
+        condition: service_started
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health/').status == 200 else 1)"]
       interval: 10s
       timeout: 3s
       retries: 5
       start_period: 30s
+
+  celery:
+    image: ${ECR_REGISTRY}/${ECR_REPOSITORY}:latest
+    entrypoint: []
+    command: python -m celery -A app.config worker --loglevel=info
+    env_file: .env
+    restart: unless-stopped
+    depends_on:
+      web:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    restart: unless-stopped
 
   db:
     image: postgres:16-alpine

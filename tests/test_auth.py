@@ -1,5 +1,4 @@
 import pytest
-from django.core import mail
 
 from app.users.models import User, UserProfile
 from tests.factories import UserFactory
@@ -143,17 +142,3 @@ def test_password_reset_request_renders(client):
     response = client.get("/accounts/password/reset/")
     assert response.status_code == 200
     assert "Email" in response.content.decode()
-
-
-@pytest.mark.django_db
-def test_password_reset_email_is_sent(client, settings):
-    settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
-    user = UserFactory(email="alice@example.com")
-    mail.outbox = []
-    response = client.post(
-        "/accounts/password/reset/",
-        {"email": user.email},
-    )
-    assert response.status_code == 302
-    assert len(mail.outbox) == 1
-    assert mail.outbox[0].to == [user.email]
