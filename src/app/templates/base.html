@@ -46,6 +46,16 @@ document.addEventListener("click", (e) => {
     input.type = isHidden ? "text" : "password";
     btn.querySelector("i").className = isHidden ? "bi bi-eye-slash" : "bi bi-eye";
 });
+
+document.addEventListener("submit", (e) => {
+    const form = e.target.closest("[data-llm-form]");
+    if (!form) return;
+    const btn = form.querySelector("button[type=submit]");
+    if (!btn) return;
+    btn.disabled = true;
+    form.querySelector(".generate-label")?.classList.add("d-none");
+    form.querySelector(".generate-loading")?.classList.remove("d-none");
+});
 </script>
 </body>
 </html>

@@ -7,6 +7,7 @@ include makefiles/test.mk
 include makefiles/clean.mk
 include makefiles/docker.mk
 include makefiles/django.mk
+include makefiles/llm.mk
 
 .PHONY: help check
 

@@ -1,5 +1,6 @@
 from typing import cast
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
@@ -9,8 +10,10 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views import View
 from django.views.decorators.http import require_POST
+from django_ratelimit.decorators import ratelimit
 
 from .forms import UserProfileForm
+from .llm import generate_portrait
 from .models import User, UserFriends, UserProfile
 
 
@@ -90,4 +93,26 @@ def friend_remove(request: HttpRequest, pk: int) -> HttpResponseRedirect:
     friendship = get_object_or_404(UserFriends, pk=pk, user=user)
     friendship.delete()
     messages.success(request, "Друг удалён.")
+    return redirect(reverse("users:portrait"))
+
+
+@login_required
+@require_POST
+@ratelimit(key="user", rate=settings.LLM_RATE_LIMIT, method="POST", block=False)
+def generate(request: HttpRequest) -> HttpResponseRedirect:
+    if getattr(request, "limited", False):
+        messages.error(request, "Слишком частые попытки. Попробуйте через минуту.")
+        return redirect(reverse("users:portrait"))
+
+    user = cast(User, request.user)
+    profile, _ = UserProfile.objects.get_or_create(user=user)
+    try:
+        description = generate_portrait(user)
+    except Exception as exc:
+        messages.error(request, f"Не удалось сгенерировать: {exc}")
+        return redirect(reverse("users:portrait"))
+
+    profile.description = description
+    profile.save(update_fields=["description", "updated_at"])
+    messages.success(request, "Портрет сгенерирован.")
     return redirect(reverse("users:portrait"))

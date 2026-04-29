@@ -20,6 +20,8 @@ services:
         condition: service_healthy
       mailhog:
         condition: service_started
+      ollama:
+        condition: service_started
 
   celery:
     build:
@@ -66,5 +68,11 @@ services:
     ports:
       - "8025:8025"
 
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama_data:/root/.ollama
+
 volumes:
   pgdata:
+  ollama_data:

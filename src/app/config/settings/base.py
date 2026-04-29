@@ -159,3 +159,22 @@ EMAIL_HOST = config("EMAIL_HOST", default="mailhog")
 EMAIL_PORT = config("EMAIL_PORT", default=1025, cast=int)
 EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=False, cast=bool)
 DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="noreply@llm-portrait.local")
+
+# ==============================================================================
+# Cache (Redis) — shared state for rate-limit across gunicorn workers
+# ==============================================================================
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": config("REDIS_CACHE_URL", default="redis://redis:6379/1"),
+    }
+}
+
+# ==============================================================================
+# LLM
+# ==============================================================================
+
+OLLAMA_URL = config("OLLAMA_URL", default="http://ollama:11434")
+OLLAMA_MODEL = config("OLLAMA_MODEL", default="llama3.2:3b")
+LLM_RATE_LIMIT = config("LLM_RATE_LIMIT", default="2/m")
