@@ -75,6 +75,9 @@ DATABASES = {
 
 AUTH_USER_MODEL = "users.User"
 
+# Map Django's ERROR level to Bootstrap's "danger" alert class.
+MESSAGE_TAGS = {40: "danger"}
+
 # ==============================================================================
 # Authentication (allauth)
 # ==============================================================================

@@ -6,5 +6,7 @@ app_name = "users"
 
 urlpatterns = [
     path("", views.landing, name="landing"),
-    path("portrait/", views.portrait_stub, name="portrait"),
+    path("portrait/", views.PortraitView.as_view(), name="portrait"),
+    path("portrait/friends/<int:user_id>/add/", views.friend_add, name="friend_add"),
+    path("portrait/friends/<int:pk>/remove/", views.friend_remove, name="friend_remove"),
 ]

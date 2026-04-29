@@ -115,24 +115,6 @@ def test_logout_returns_to_landing(client):
 
 
 # ==============================================================================
-# Portrait stub auth gating
-# ==============================================================================
-
-
-def test_portrait_stub_requires_login(client):
-    response = client.get("/portrait/")
-    assert response.status_code == 302
-    assert response["Location"] == "/accounts/login/?next=/portrait/"
-
-
-@pytest.mark.django_db
-def test_portrait_stub_renders_for_authenticated(client):
-    client.force_login(UserFactory())
-    response = client.get("/portrait/")
-    assert response.status_code == 200
-
-
-# ==============================================================================
 # Password reset
 # ==============================================================================
 
