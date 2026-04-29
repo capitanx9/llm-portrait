@@ -1,3 +1,5 @@
+from typing import cast
+
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
@@ -9,7 +11,7 @@ from django.views import View
 from django.views.decorators.http import require_POST
 
 from .forms import UserProfileForm
-from .models import UserFriends, UserProfile
+from .models import User, UserFriends, UserProfile
 
 
 def landing(request: HttpRequest) -> HttpResponse:
@@ -22,26 +24,26 @@ class PortraitView(LoginRequiredMixin, View):
     template_name = "users/portrait.html"
 
     def get(self, request: HttpRequest) -> HttpResponse:
-        profile, _ = UserProfile.objects.get_or_create(user=request.user)
+        user = cast(User, request.user)
+        profile, _ = UserProfile.objects.get_or_create(user=user)
         profile_form = UserProfileForm(instance=profile)
-        return render(request, self.template_name, self._context(request, profile_form))
+        return render(request, self.template_name, self._context(user, profile_form))
 
     def post(self, request: HttpRequest) -> HttpResponse:
-        profile, _ = UserProfile.objects.get_or_create(user=request.user)
+        user = cast(User, request.user)
+        profile, _ = UserProfile.objects.get_or_create(user=user)
         profile_form = UserProfileForm(request.POST, instance=profile)
         if profile_form.is_valid():
             profile_form.save()
             messages.success(request, "Профиль сохранён.")
             return redirect("users:portrait")
-        return render(request, self.template_name, self._context(request, profile_form))
+        return render(request, self.template_name, self._context(user, profile_form))
 
-    def _context(self, request: HttpRequest, profile_form: UserProfileForm) -> dict:
+    def _context(self, user: User, profile_form: UserProfileForm) -> dict:
         user_model = get_user_model()
-        friend_ids = set(
-            UserFriends.objects.filter(user=request.user).values_list("friend_id", flat=True)
-        )
+        friend_ids = set(UserFriends.objects.filter(user=user).values_list("friend_id", flat=True))
         people = (
-            user_model.objects.exclude(pk=request.user.pk)
+            user_model.objects.exclude(pk=user.pk)
             .filter(is_staff=False, is_superuser=False)
             .select_related("profile")
             .order_by("username")
@@ -50,7 +52,7 @@ class PortraitView(LoginRequiredMixin, View):
         for person in people:
             friendship_pk = None
             if person.pk in friend_ids:
-                friendship_pk = UserFriends.objects.get(user=request.user, friend=person).pk
+                friendship_pk = UserFriends.objects.get(user=user, friend=person).pk
             rows.append(
                 {
                     "user": person,
@@ -67,15 +69,15 @@ class PortraitView(LoginRequiredMixin, View):
 @login_required
 @require_POST
 def friend_add(request: HttpRequest, user_id: int) -> HttpResponseRedirect:
-    user_model = get_user_model()
-    target = get_object_or_404(user_model, pk=user_id)
+    user = cast(User, request.user)
+    target = get_object_or_404(User, pk=user_id)
 
-    if target == request.user:
+    if target == user:
         messages.error(request, "Нельзя добавить самого себя.")
-    elif UserFriends.objects.filter(user=request.user, friend=target).exists():
+    elif UserFriends.objects.filter(user=user, friend=target).exists():
         messages.error(request, "Этот пользователь уже у вас в друзьях.")
     else:
-        UserFriends.objects.create(user=request.user, friend=target)
+        UserFriends.objects.create(user=user, friend=target)
         messages.success(request, f"{target.username} добавлен в друзья.")
 
     return redirect(reverse("users:portrait"))
@@ -84,7 +86,8 @@ def friend_add(request: HttpRequest, user_id: int) -> HttpResponseRedirect:
 @login_required
 @require_POST
 def friend_remove(request: HttpRequest, pk: int) -> HttpResponseRedirect:
-    friendship = get_object_or_404(UserFriends, pk=pk, user=request.user)
+    user = cast(User, request.user)
+    friendship = get_object_or_404(UserFriends, pk=pk, user=user)
     friendship.delete()
     messages.success(request, "Друг удалён.")
     return redirect(reverse("users:portrait"))
