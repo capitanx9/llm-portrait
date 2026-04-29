@@ -41,7 +41,15 @@
                 Здесь появится сгенерированный портрет после клика "Сгенерировать".
             </p>
         {% endif %}
-        <button class="btn btn-success" disabled title="Скоро">✨ Сгенерировать портрет</button>
+        <form method="post" action="{% url 'users:generate' %}" class="m-0" data-llm-form>
+            {% csrf_token %}
+            <button type="submit" class="btn btn-success" id="generate-btn">
+                <span class="generate-label">✨ Сгенерировать портрет</span>
+                <span class="generate-loading d-none">
+                    <span class="spinner-border spinner-border-sm"></span> Генерируем...
+                </span>
+            </button>
+        </form>
     </div>
 </div>
 
