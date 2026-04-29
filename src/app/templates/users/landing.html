@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block title %}LLM Portrait — таро-портрет от ИИ{% endblock %}
+
+{% block content %}
+<div class="text-center py-5">
+    <h1 class="display-4 mb-3">LLM Portrait</h1>
+    <p class="lead text-muted mb-4">Карта Таро для вашего профиля. Узнайте свой архетип.</p>
+    <a href="{% url 'account_login' %}" class="btn btn-primary btn-lg">Войти</a>
+</div>
+{% endblock %}
