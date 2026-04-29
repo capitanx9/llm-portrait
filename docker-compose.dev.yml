@@ -16,6 +16,28 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+      mailhog:
+        condition: service_started
+
+  celery:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: dev
+    entrypoint: []
+    command: python -m celery -A app.config worker --loglevel=info
+    volumes:
+      - ./src:/app/src
+      - ./manage.py:/app/manage.py
+      - ./pyproject.toml:/app/pyproject.toml
+    env_file: .env
+    depends_on:
+      web:
+        condition: service_started
+      redis:
+        condition: service_healthy
 
   db:
     image: postgres:16-alpine
@@ -30,6 +52,19 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    ports:
+      - "8025:8025"
 
 volumes:
   pgdata:
