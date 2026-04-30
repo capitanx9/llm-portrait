@@ -63,24 +63,6 @@ git checkout -b feat/<next-thing>
 
 If you forget and add another commit on the just-merged branch, then try to open another PR from it, GitHub will (correctly) complain about conflicts even though the diffs look like duplicates. The fix is exactly the snippet above — branch from fresh `main`, pick / re-do the work, open a clean PR.
 
-## Tracking work
-
-There's no Jira / Linear / GitHub Projects board. Work tracking is split:
-
-- **Long-term plan** — a personal `PLAN.md` on the developer's desktop (not in the repo). It lists features, statuses, and the open questions for the next stage of the assignment.
-- **Per-task** — the PR title (and its body) is the task description. PR descriptions also contain a "What's done" / "Verification" section so anyone reading the PR knows what to check.
-
-The internship is solo, so anything heavier (Linear, Notion, …) would be ceremony. If this project gained a second developer, the obvious next step would be a Projects board on GitHub.
-
-## What the repo does NOT have, on purpose
-
-- **No `Dependabot`.** Auto-PRs from Dependabot break the "branch from fresh main, work, squash, delete" loop with constant noise. For a study project the cost outweighs the value. Dependency upgrades happen manually when needed.
-- **No `CODEOWNERS`.** Solo project.
-- **No PR template.** The repo's PRs already have a consistent shape (summary + verification) without a template forcing it.
-- **No issue tracker on GitHub.** Tasks live in the desktop `PLAN.md` instead.
-
-These are intentional choices, not omissions. They keep the workflow lean. As soon as a second contributor shows up, half of these get added back.
-
 ## What a typical PR looks like
 
 1. `git checkout main && git pull && git checkout -b feat/<topic>`.
