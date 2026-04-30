@@ -54,7 +54,7 @@ document.addEventListener("submit", (e) => {
     if (!btn) return;
     btn.disabled = true;
     form.querySelector(".generate-label")?.classList.add("d-none");
-    form.querySelector(".generate-loading")?.classList.remove("d-none");
+    form.querySelectorAll(".generate-loading").forEach((el) => el.classList.remove("d-none"));
 });
 </script>
 </body>
