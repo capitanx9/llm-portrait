@@ -2,7 +2,7 @@ from django.conf import settings
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_ollama import ChatOllama
 
-from .models import User
+from app.users.models import User
 
 SYSTEM_PROMPT = """Ты — мистический рассказчик, который описывает людей через Таро.
 Напиши краткое (80-120 слов) описание человека по его профилю.

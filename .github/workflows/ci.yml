@@ -13,7 +13,7 @@ concurrency:
 # Shared dummy values for jobs that load Django settings (type-check, test).
 # Lint inherits them too — harmless, ruff doesn't import Django.
 env:
-  SECRET_KEY: ci-not-for-prod
+  SECRET_KEY: ci-secret-not-for-prod-xxxxxxxxxxxxxxxx
   DEBUG: "False"
   ALLOWED_HOSTS: localhost
   DATABASE_URL: postgres://app:app@localhost:5432/llm_portrait
