@@ -23,6 +23,26 @@ services:
       ollama:
         condition: service_started
 
+  ws:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: dev
+    entrypoint: []
+    command: python -m daphne -b 0.0.0.0 -p 8001 app.config.asgi:application
+    volumes:
+      - ./src:/app/src
+      - ./manage.py:/app/manage.py
+      - ./pyproject.toml:/app/pyproject.toml
+    ports:
+      - "8001:8001"
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   celery:
     build:
       context: .
