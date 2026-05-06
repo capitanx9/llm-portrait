@@ -4,7 +4,12 @@ services:
       context: .
       dockerfile: docker/Dockerfile
       target: dev
-    command: python manage.py runserver 0.0.0.0:8000
+    # When DEBUGPY=1 we disable Django's autoreload. Autoreload snapshots
+    # every Path on the project on a timer, which trips a known bug in
+    # debugpy's Path-tracking and produces a noisy POSIXPath has no
+    # attribute _hash error in the call-stack pane. We don't actually need
+    # autoreload while we're paused on a breakpoint anyway.
+    command: ["sh", "-c", "if [ \"$$DEBUGPY\" = \"1\" ]; then exec python manage.py runserver --noreload 0.0.0.0:8000; else exec python manage.py runserver 0.0.0.0:8000; fi"]
     volumes:
       - ./src:/app/src
       - ./tests:/app/tests
@@ -12,6 +17,10 @@ services:
       - ./pyproject.toml:/app/pyproject.toml
     ports:
       - "8000:8000"
+      - "5678:5678"  # debugpy (only listens when DEBUGPY=1; harmless otherwise)
+    environment:
+      DEBUGPY: ${DEBUGPY:-}
+      DEBUGPY_WAIT: ${DEBUGPY_WAIT:-}
     env_file: .env
     depends_on:
       db:
