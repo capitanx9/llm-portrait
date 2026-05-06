@@ -57,6 +57,23 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-and-push
     steps:
+      - uses: actions/checkout@v4
+
+      # The repo is the source of truth for compose + nginx configs. Without
+      # this step, those files on EC2 drift from main: scp creates a new inode,
+      # nginx-container's bind mount stays attached to the old (now-deleted)
+      # inode, and the container keeps serving the previous config until
+      # someone manually recreates it. Pushing them on every deploy makes the
+      # repo authoritative.
+      - name: Sync prod configs to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "docker-compose.prod.yml,docker/nginx.conf"
+          target: "/opt/llm-portrait"
+
       - name: SSH and update stack
         uses: appleboy/ssh-action@v1
         with:
@@ -69,7 +86,13 @@ jobs:
             aws ecr get-login-password --region ${{ secrets.AWS_REGION }} \
               | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
             docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d
+            # --force-recreate is critical for nginx: scp above replaces the
+            # config files with new inodes on the host, but the running nginx
+            # container's bind mount is still attached to the old inode. Only
+            # recreating the container re-attaches the mount to the current
+            # file. For web/ws/celery this also guarantees they boot from the
+            # freshly-pulled image even if the tag pointed somewhere unusual.
+            docker compose -f docker-compose.prod.yml up -d --force-recreate
             docker image prune -f
 
   smoke-test:
