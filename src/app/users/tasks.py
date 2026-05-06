@@ -18,10 +18,3 @@ def send_welcome_email(user_id: int) -> None:
         from_email=None,
         recipient_list=[user.email],
     )
-
-
-@shared_task
-def send_email_async(
-    subject: str, body: str, from_email: str | None, recipient_list: list[str]
-) -> None:
-    send_mail(subject, body, from_email, recipient_list)

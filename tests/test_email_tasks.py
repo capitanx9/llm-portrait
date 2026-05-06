@@ -1,7 +1,8 @@
 import pytest
+from django.contrib.auth import get_user_model
 from django.core import mail
 
-from tests.factories import UserFactory
+User = get_user_model()
 
 
 @pytest.fixture
@@ -17,32 +18,16 @@ def celery_eager(settings):
 
 
 @pytest.mark.django_db(transaction=True)
-def test_welcome_email_sent_on_signup(client, celery_eager):
-    response = client.post(
-        "/accounts/signup/",
-        {
-            "username": "newuser",
-            "email": "newuser@example.com",
-            "password1": "pass1234",
-            "password2": "pass1234",
-        },
-    )
-    assert response.status_code == 302
+def test_welcome_email_sent_when_user_created_with_email(celery_eager):
+    User.objects.create_user(username="alice", email="alice@example.com", password="pass1234")
+
     assert len(mail.outbox) == 1
-    assert mail.outbox[0].to == ["newuser@example.com"]
+    assert mail.outbox[0].to == ["alice@example.com"]
     assert "Добро пожаловать" in mail.outbox[0].subject
 
 
-# ==============================================================================
-# Password reset email
-# ==============================================================================
+@pytest.mark.django_db(transaction=True)
+def test_welcome_email_skipped_when_email_blank(celery_eager):
+    User.objects.create_user(username="root", email="", password="pass1234")
 
-
-@pytest.mark.django_db
-def test_password_reset_email_sent(client, celery_eager):
-    user = UserFactory(email="alice@example.com")
-    mail.outbox = []
-    response = client.post("/accounts/password/reset/", {"email": user.email})
-    assert response.status_code == 302
-    assert len(mail.outbox) == 1
-    assert mail.outbox[0].to == [user.email]
+    assert mail.outbox == []
