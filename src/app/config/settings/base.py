@@ -14,6 +14,7 @@ ALLOWED_HOSTS = config(
 )
 
 DJANGO_APPS = [
+    "daphne",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -23,6 +24,7 @@ DJANGO_APPS = [
 ]
 
 THIRD_PARTY_APPS = [
+    "channels",
     "django_celery_results",
     "rest_framework",
     "rest_framework_simplejwt.token_blacklist",
@@ -50,6 +52,7 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = "app.config.urls"
 WSGI_APPLICATION = "app.config.wsgi.application"
+ASGI_APPLICATION = "app.config.asgi.application"
 
 TEMPLATES = [
     {
@@ -127,6 +130,19 @@ CACHES = {
         "BACKEND": "django_redis.cache.RedisCache",
         "LOCATION": config("REDIS_CACHE_URL", default="redis://redis:6379/1"),
     }
+}
+
+# ==============================================================================
+# Channels (ASGI / WebSocket layer)
+# ==============================================================================
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [config("REDIS_CHANNELS_URL", default="redis://redis:6379/2")],
+        },
+    },
 }
 
 # ==============================================================================
