@@ -5,3 +5,8 @@ DEBUG = True
 ALLOWED_HOSTS = ["*"]
 
 ACCOUNT_DEFAULT_HTTP_PROTOCOL = "http"
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
