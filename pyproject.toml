@@ -109,6 +109,17 @@ python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 asyncio_mode = "auto"
+filterwarnings = [
+    # Channels' InMemoryChannelLayer leaves a queue.get() coroutine pending
+    # when the test event loop is torn down; the resulting RuntimeError is
+    # logged as an unraisable warning. Documented upstream
+    # (https://github.com/django/channels/issues/1810) and harmless.
+    "ignore::pytest.PytestUnraisableExceptionWarning",
+    # pytest-django sometimes can't drop the test DB on teardown because
+    # another connection (e.g. Channels layer) is still attached. The DB is
+    # recreated on the next run; safe to ignore.
+    "ignore:Error when trying to teardown test databases:pytest.PytestWarning",
+]
 
 
 # ------------------------------------------------------------------------------

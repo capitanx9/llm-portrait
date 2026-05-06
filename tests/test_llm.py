@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 import pytest
 
-from app.users.llm import build_portrait_prompt, generate_portrait
+from app.ai.llm import build_portrait_prompt, generate_portrait
 from app.users.models import UserFriends, UserProfile
 from tests.factories import UserFactory
 
@@ -65,7 +65,7 @@ def test_build_portrait_prompt_with_empty_profile():
 def test_generate_portrait_calls_ollama():
     user = UserFactory(username="alice")
 
-    with patch("app.users.llm.ChatOllama") as mock_ollama:
+    with patch("app.ai.llm.ChatOllama") as mock_ollama:
         mock_ollama.return_value.invoke.return_value.content = "Mocked portrait."
         result = generate_portrait(user)
 

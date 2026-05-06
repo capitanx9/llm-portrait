@@ -11,8 +11,16 @@ IN_MEMORY_LAYER = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"
 
 
 @database_sync_to_async
-def _access_token_for(user) -> str:
-    return str(RefreshToken.for_user(user).access_token)
+def _make_user_and_token(username: str) -> tuple:
+    """Create the user AND its token in the same sync block, so both inserts
+    (User + simplejwt's OutstandingToken) commit to the test DB before the
+    async event loop hands control to the consumer that will then look the
+    user up. Avoids a flaky race where the consumer's User.objects.get()
+    runs before the post-commit visibility of the freshly-created user.
+    """
+    user = UserFactory(username=username)
+    token = str(RefreshToken.for_user(user).access_token)
+    return user, token
 
 
 async def _connect(name: str, token: str | None = None) -> WebsocketCommunicator:
@@ -52,8 +60,7 @@ async def test_ws_rejects_connection_with_invalid_token(settings) -> None:
 @pytest.mark.django_db(transaction=True)
 async def test_ws_accepts_valid_token(settings) -> None:
     settings.CHANNEL_LAYERS = IN_MEMORY_LAYER
-    user = await _make_user("alice")
-    token = await _access_token_for(user)
+    _, token = await _make_user_and_token("alice")
 
     communicator = await _connect("general", token=token)
     connected, _ = await communicator.connect()
@@ -70,11 +77,11 @@ async def test_ws_accepts_valid_token(settings) -> None:
 @pytest.mark.django_db(transaction=True)
 async def test_ws_message_is_broadcast_to_other_clients_in_same_room(settings) -> None:
     settings.CHANNEL_LAYERS = IN_MEMORY_LAYER
-    alice = await _make_user("alice")
-    bob = await _make_user("bob")
+    _, alice_token = await _make_user_and_token("alice")
+    _, bob_token = await _make_user_and_token("bob")
 
-    a = await _connect("general", token=await _access_token_for(alice))
-    b = await _connect("general", token=await _access_token_for(bob))
+    a = await _connect("general", token=alice_token)
+    b = await _connect("general", token=bob_token)
     await a.connect()
     await b.connect()
 
@@ -94,11 +101,11 @@ async def test_ws_message_is_broadcast_to_other_clients_in_same_room(settings) -
 @pytest.mark.django_db(transaction=True)
 async def test_ws_messages_in_one_room_do_not_leak_to_another(settings) -> None:
     settings.CHANNEL_LAYERS = IN_MEMORY_LAYER
-    alice = await _make_user("alice")
-    bob = await _make_user("bob")
+    _, alice_token = await _make_user_and_token("alice")
+    _, bob_token = await _make_user_and_token("bob")
 
-    a = await _connect("general", token=await _access_token_for(alice))
-    b = await _connect("random", token=await _access_token_for(bob))
+    a = await _connect("general", token=alice_token)
+    b = await _connect("random", token=bob_token)
     await a.connect()
     await b.connect()
 
@@ -114,9 +121,9 @@ async def test_ws_messages_in_one_room_do_not_leak_to_another(settings) -> None:
 @pytest.mark.django_db(transaction=True)
 async def test_ws_persists_message_to_db(settings) -> None:
     settings.CHANNEL_LAYERS = IN_MEMORY_LAYER
-    alice = await _make_user("alice")
+    _, alice_token = await _make_user_and_token("alice")
 
-    a = await _connect("general", token=await _access_token_for(alice))
+    a = await _connect("general", token=alice_token)
     await a.connect()
     await a.send_json_to({"text": "persisted"})
     await a.receive_json_from()
@@ -129,9 +136,9 @@ async def test_ws_persists_message_to_db(settings) -> None:
 @pytest.mark.django_db(transaction=True)
 async def test_ws_ignores_blank_text(settings) -> None:
     settings.CHANNEL_LAYERS = IN_MEMORY_LAYER
-    alice = await _make_user("alice")
+    _, alice_token = await _make_user_and_token("alice")
 
-    a = await _connect("general", token=await _access_token_for(alice))
+    a = await _connect("general", token=alice_token)
     await a.connect()
     await a.send_json_to({"text": "   "})
 
@@ -144,11 +151,6 @@ async def test_ws_ignores_blank_text(settings) -> None:
 # ==============================================================================
 # Helpers (sync->async DB access)
 # ==============================================================================
-
-
-@database_sync_to_async
-def _make_user(username: str):
-    return UserFactory(username=username)
 
 
 @database_sync_to_async
