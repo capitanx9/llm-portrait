@@ -1,4 +1,4 @@
-.PHONY: migrate makemigrations shell superuser runserver
+.PHONY: migrate makemigrations shell superuser runserver seed-users
 
 migrate: ## Apply migrations inside the web container
 	$(COMPOSE) exec web python manage.py migrate
@@ -11,6 +11,9 @@ shell: ## Open a Django shell inside the web container
 
 superuser: ## Create a Django superuser
 	$(COMPOSE) exec web python manage.py createsuperuser
+
+seed-users: ## Create five demo chat users (idempotent)
+	$(COMPOSE) exec web python manage.py seed_users
 
 runserver: ## Run Django dev server outside Docker (rare; needs local Postgres)
 	$(POETRY) run python manage.py runserver
