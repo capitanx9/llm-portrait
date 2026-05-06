@@ -32,8 +32,11 @@ htmlcov/
 .ruff_cache/
 .mypy_cache/
 
-# VS Code
-.vscode/
+# VS Code: ignore everything except shared workspace settings (launch.json
+# for the debugger config, extensions.json for recommended extensions).
+.vscode/*
+!.vscode/launch.json
+!.vscode/extensions.json
 
 # macOS
 .DS_Store
