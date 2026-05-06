@@ -19,6 +19,7 @@ env:
   DATABASE_URL: postgres://app:app@localhost:5432/llm_portrait
   CELERY_BROKER_URL: redis://localhost:6379/0
   REDIS_CACHE_URL: redis://localhost:6379/1
+  REDIS_CHANNELS_URL: redis://localhost:6379/2
 
 jobs:
   lint:
