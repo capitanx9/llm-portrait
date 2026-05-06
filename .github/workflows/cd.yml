@@ -77,11 +77,22 @@ jobs:
     runs-on: ubuntu-latest
     needs: deploy
     steps:
-      - name: Wait for app to settle
-        run: sleep 15
-
-      - name: Curl /health/
+      - name: Curl /health/ until it returns 200 (or give up after 90s)
         run: |
-          curl -fsS --max-time 30 https://${{ secrets.EC2_HOST_DOMAIN }}/health/ \
-            | tee /tmp/health.json
-          grep -q '"status":\s*"ok"' /tmp/health.json
+          # After `docker compose up -d` we hit a small race where nginx still
+          # caches the previous web container's IP for up to ~10s (the resolver's
+          # 'valid=' window). Probing once here is flaky; retry with backoff
+          # until we get a real answer.
+          for i in $(seq 1 30); do
+            if body=$(curl -fsS --max-time 5 https://${{ secrets.EC2_HOST_DOMAIN }}/health/ 2>/dev/null); then
+              echo "$body" | tee /tmp/health.json
+              if echo "$body" | grep -q '"status":\s*"ok"'; then
+                echo "Smoke OK after $i attempt(s)."
+                exit 0
+              fi
+            fi
+            echo "Attempt $i: not ready yet, sleeping 3s..."
+            sleep 3
+          done
+          echo "Smoke test failed: /health/ never returned 200 in 90s"
+          exit 1
