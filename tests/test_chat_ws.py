@@ -148,6 +148,32 @@ async def test_ws_ignores_blank_text(settings) -> None:
     await a.disconnect()
 
 
+@pytest.mark.django_db(transaction=True)
+async def test_ws_invalid_json_returns_error_frame(settings) -> None:
+    """A non-JSON text frame must not tear the connection down with a
+    JSONDecodeError; the consumer replies with a structured error and stays
+    open so the client can recover."""
+    settings.CHANNEL_LAYERS = IN_MEMORY_LAYER
+    _, alice_token = await _make_user_and_token("alice")
+
+    a = await _connect("general", token=alice_token)
+    await a.connect()
+    # Send a raw text frame that isn't valid JSON. Before the fix, this
+    # crashed inside AsyncJsonWebsocketConsumer.decode_json and bubbled to
+    # daphne; now the consumer catches it and replies on the same socket.
+    await a.send_to(text_data="not json at all")
+
+    response = await a.receive_json_from()
+    assert response["error"] == "invalid_json"
+
+    # Connection still alive — a follow-up valid message goes through.
+    await a.send_json_to({"text": "after recovery"})
+    follow_up = await a.receive_json_from()
+    assert follow_up["text"] == "after recovery"
+
+    await a.disconnect()
+
+
 # ==============================================================================
 # Helpers (sync->async DB access)
 # ==============================================================================

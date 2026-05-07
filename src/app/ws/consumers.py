@@ -1,7 +1,9 @@
+import json
 from typing import Any
 
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
+from loguru import logger
 
 from app.chat.models import Message, Room
 
@@ -20,11 +22,16 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
     Wire protocol:
         client -> server: {"text": "hi"}
         server -> client: {"id", "sender", "text", "created_at"}
+
+    Logging: connect/receive/disconnect emit one structured line each,
+    sharing the request_id bound by app.ws.middleware.RequestIdMiddleware,
+    so the full lifecycle of a single connection is greppable by id.
     """
 
     async def connect(self) -> None:
         user = self.scope["user"]
         if not user.is_authenticated:
+            logger.info("ws connect rejected: unauthenticated")
             await self.close(code=4001)
             return
 
@@ -34,10 +41,42 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
 
         await self.channel_layer.group_add(self.group_name, self.channel_name)
         await self.accept()
+        logger.info(
+            "ws connect accepted",
+            room=self.room_name,
+            user=user.username,
+        )
 
     async def disconnect(self, code: int) -> None:
         if hasattr(self, "group_name"):
             await self.channel_layer.group_discard(self.group_name, self.channel_name)
+        logger.info(
+            "ws disconnect",
+            room=getattr(self, "room_name", None),
+            user=getattr(self.scope["user"], "username", None),
+            code=code,
+        )
+
+    async def receive(
+        self,
+        text_data: str | None = None,
+        bytes_data: bytes | None = None,
+        **kwargs: Any,
+    ) -> None:
+        # Override the base class so a non-JSON payload (`'\n'`, plain text,
+        # whatever the client typo'd) returns a structured error frame
+        # instead of bubbling a JSONDecodeError up to daphne and tearing
+        # the connection down with a 500-style traceback. Anything else is
+        # delegated to the JSON path as usual.
+        if text_data is None:
+            return
+        try:
+            content = json.loads(text_data)
+        except json.JSONDecodeError as exc:
+            logger.warning("ws invalid json", error=str(exc), preview=text_data[:120])
+            await self.send_json({"error": "invalid_json", "detail": str(exc)})
+            return
+        await self.receive_json(content, **kwargs)
 
     async def receive_json(self, content: dict[str, Any], **kwargs: Any) -> None:
         text = (content.get("text") or "").strip()
@@ -45,7 +84,23 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             return
         text = text[:MAX_MESSAGE_LENGTH]
 
-        message = await self._save_message(self.room, self.scope["user"], text)
+        try:
+            message = await self._save_message(self.room, self.scope["user"], text)
+        except Exception:
+            # Any DB / channel-layer failure is logged with the full
+            # diagnose-traceback under the connection's request_id, so the
+            # operator can correlate it with the access log entry that
+            # accepted the message.
+            logger.exception("ws message handling failed")
+            await self.send_json({"error": "internal", "detail": "message not saved"})
+            return
+
+        logger.info(
+            "ws message",
+            room=self.room_name,
+            user=self.scope["user"].username,
+            length=len(text),
+        )
         payload = {
             "id": message.id,
             "sender": self.scope["user"].username,
