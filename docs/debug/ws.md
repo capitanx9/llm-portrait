@@ -46,15 +46,24 @@ WS_DEMO_USER_A=alice WS_DEMO_USER_B=bob WS_DEMO_ROOM=my-room make ws-demo
 
 ## Using the Postman collection
 
-> *Coming soon — the collection lives at
-> `docs/api/ws/postman/llm-portrait-ws.postman_collection.json` once
-> it's exported from Postman GUI. See
-> [`../api/ws/README.md`](../api/ws/README.md) for what's inside.*
+Easiest path is to fork the live workspace:
 
-Pair the collection with `make logs-ws` in a terminal. The same
-`request_id` will appear in both the response payload (via the
-`X-Request-ID`-style log line) and in your `make logs-ws` output, so
-a single id stitches the GUI activity to the server-side stream.
+> <https://www.postman.com/workspace/LLM-Portrait~5ea18d06-4274-46ad-94f5-37aae5a07b60/collection/69fcd027fa9ca218b33a5171?action=share&source=copy-link&creator=6728552>
+
+Then import one of the two environments from
+[`../api/ws/postman/`](../api/ws/postman/) so the URLs resolve to
+either local or prod. The full setup walkthrough — and the
+known-issue note about Postman's JSON export demoting WS requests to
+HTTP GET on import — lives in
+[`../api/ws/postman/README.md`](../api/ws/postman/README.md). That's
+the public "how to drive the WS API from a GUI" doc; this page is
+the internal "how to correlate the GUI activity with server logs"
+one.
+
+Pair the GUI session with `make logs-ws` in a terminal. The same
+`request_id` is bound by the WS middleware on connect and stays on
+every consumer log line for the duration of that connection, so a
+single id stitches the GUI activity to the server-side stream.
 
 ## Reading `make logs-ws`
 

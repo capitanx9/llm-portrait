@@ -1,0 +1,100 @@
+{
+  "info": {
+    "_postman_id": "69fcd027fa9ca218b33a5171",
+    "name": "LLM-Portrait-WS",
+    "description": "",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "room",
+      "value": ""
+    },
+    {
+      "key": "username",
+      "value": ""
+    },
+    {
+      "key": "password",
+      "value": ""
+    },
+    {
+      "key": "access_token",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "id": "69fcd161f2345bb44e7f191b",
+      "name": "Register (one-time)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{base_http}}/api/auth/register/"
+      },
+      "response": []
+    },
+    {
+      "id": "69fcd11dae485fb05802db62",
+      "name": "Login (get JWT)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Login returns access token\", () => {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json.access).to.be.a(\"string\");",
+              "    pm.collectionVariables.set(\"access_token\", json.access);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"username\": \"{{username}}\",\n    \"password\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{base_http}}/api/auth/login/"
+      },
+      "response": []
+    },
+    {
+      "id": "69fcd027fa9ca218b33a5172",
+      "name": "Chat room (WS)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_ws}}/ws/chat/{{room}}/?token={{access_token}}",
+          "host": ["{{base_ws}}"],
+          "path": ["ws", "chat", "{{room}}", ""],
+          "query": [
+            {
+              "key": "token",
+              "value": "{{access_token}}"
+            }
+          ]
+        }
+      },
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "response": []
+    }
+  ]
+}
