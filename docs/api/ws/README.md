@@ -48,15 +48,69 @@ generated HTML keeps the diff visible in PRs.
 
 ## Postman collection
 
-> *Coming soon — the collection will live at
-> [`postman/llm-portrait-ws.postman_collection.json`](postman/) once
-> exported from the Postman GUI. It will pre-configure JWT acquisition,
-> the `?token=...` query parameter, and the four message templates
-> documented in the AsyncAPI spec.*
+For poking the WS API from a GUI we ship a hand-maintained Postman
+collection plus two environments. The recommended path is to **fork
+the live collection** from the public Postman workspace:
 
-Once available: import the JSON into Postman, fill in your local server
-URL and credentials, and the same scenarios you'd run via `make ws-demo`
-become a few clicks in the GUI.
+> <https://www.postman.com/workspace/LLM-Portrait~5ea18d06-4274-46ad-94f5-37aae5a07b60/collection/69fcd027fa9ca218b33a5171?action=share&source=copy-link&creator=6728552>
+
+Pair it with one of the two environments shipped under
+[`postman/`](postman/):
+
+- `llm-portrait-local.postman_environment.json` — local stack.
+- `llm-portrait-prod.postman_environment.json` — deployed instance.
+
+### Why a live link, not just JSON files
+
+Postman's collection v2.1 export format doesn't have first-class
+fields for WebSocket requests — the `Chat room (WS)` item demotes to
+an HTTP GET on JSON round-trip. Importing
+`postman/llm-portrait-ws.postman_collection.json` works for the two
+HTTP requests (Login, Register) but the WS request needs to be
+recreated by hand. The live link side-steps that.
+
+The JSON file is still committed: it's useful for the HTTP requests,
+and once Postman ships proper WS support in their schema, the same
+file will start importing correctly without changes from us. See
+[`postman/README.md`](postman/README.md) for the full workaround.
+
+### Run order
+
+1. **Login (get JWT)** — POSTs to `/api/auth/login/` with the demo
+   credentials; a post-response script writes the access token into
+   the collection variable `access_token`.
+2. **Register (one-time)** — only needed on a fresh server. 400 on
+   re-run means the demo user already exists, that's fine.
+3. **Chat room (WS)** — opens the WebSocket connection and lets you
+   send each of the four documented messages (valid, empty, long,
+   invalid JSON) by typing them into the message editor and clicking
+   **Send**. The token from step 1 is plugged into the `?token=`
+   query parameter automatically.
+
+### Sample messages
+
+Paste any of these into Postman's message editor for the Chat room
+request:
+
+```json
+{"text": "hello from postman"}
+```
+
+```json
+{"text": ""}
+```
+
+```json
+{"text": "много много много много много много много букв"}
+```
+
+For the invalid-JSON path, switch the message type from JSON to Text
+and send any non-JSON string, e.g. `просто строка не json`. The
+server responds with `{"error": "invalid_json", ...}` and keeps the
+connection open.
+
+For internal debugging tips and `make logs-ws` traces, see
+[`../../debug/ws.md`](../../debug/ws.md).
 
 ## Wire protocol summary
 
