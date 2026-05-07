@@ -10,6 +10,25 @@ from app.chat.models import Message, Room
 MAX_MESSAGE_LENGTH = 4000
 
 
+def _handshake_fields(scope: dict[str, Any]) -> dict[str, Any]:
+    """Pull the HTTP-handshake metadata out of an ASGI scope.
+
+    These values are only known at handshake time (the WebSocket upgrade
+    is just an HTTP GET with `Upgrade: websocket`), so they're worth
+    logging exactly once on `connect`. After that the connection is
+    pure binary frames with no per-frame headers, and re-logging the
+    handshake fields on every message would just be noise.
+    """
+    headers = {k.decode().lower(): v.decode() for k, v in scope.get("headers", [])}
+    client = scope.get("client") or ("", 0)
+    return {
+        "client_ip": client[0],
+        "user_agent": headers.get("user-agent"),
+        "origin": headers.get("origin"),
+        "subprotocols": scope.get("subprotocols") or None,
+    }
+
+
 class ChatConsumer(AsyncJsonWebsocketConsumer):
     """Room-based chat consumer.
 
@@ -31,7 +50,10 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
     async def connect(self) -> None:
         user = self.scope["user"]
         if not user.is_authenticated:
-            logger.info("ws connect rejected: unauthenticated")
+            logger.info(
+                "ws connect rejected: unauthenticated",
+                **_handshake_fields(self.scope),
+            )
             await self.close(code=4001)
             return
 
@@ -45,6 +67,7 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             "ws connect accepted",
             room=self.room_name,
             user=user.username,
+            **_handshake_fields(self.scope),
         )
 
     async def disconnect(self, code: int) -> None:
@@ -100,6 +123,8 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             room=self.room_name,
             user=self.scope["user"].username,
             length=len(text),
+            frame_type="text",
+            message_id=message.id,
         )
         payload = {
             "id": message.id,
