@@ -9,6 +9,7 @@ include makefiles/docker.mk
 include makefiles/django.mk
 include makefiles/llm.mk
 include makefiles/ws-demo.mk
+include makefiles/asyncapi.mk
 
 .PHONY: help check
 

@@ -80,6 +80,10 @@ COPY --from=builder --chown=app:app /build/.venv /app/.venv
 
 COPY --chown=app:app manage.py ./
 COPY --chown=app:app src/ ./src/
+# AsyncAPI HTML is pre-rendered offline (`make asyncapi-build`) and committed
+# alongside the YAML. Bake it into the image so the /ws/docs/ view doesn't
+# depend on a host bind mount in production.
+COPY --chown=app:app docs/asyncapi.html ./docs/asyncapi.html
 COPY --chown=app:app docker/entrypoint.dev.sh docker/entrypoint.prod.sh ./
 RUN chmod +x ./entrypoint.dev.sh ./entrypoint.prod.sh
 

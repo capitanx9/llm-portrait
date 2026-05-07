@@ -40,3 +40,6 @@ htmlcov/
 
 # macOS
 .DS_Store
+
+# Intermediate AsyncAPI generator output (we keep only the final HTML).
+docs/_asyncapi-out/

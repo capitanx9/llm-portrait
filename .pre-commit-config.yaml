@@ -3,14 +3,23 @@ repos:
     rev: v5.0.0
     hooks:
       - id: trailing-whitespace
+        exclude: ^docs/asyncapi\.html$
       - id: end-of-file-fixer
+        exclude: ^docs/asyncapi\.html$
       - id: check-yaml
+      # docs/asyncapi.html is the pre-rendered AsyncAPI documentation
+      # (single-file output of @asyncapi/html-template — HTML + inlined
+      # React runtime). It's committed alongside docs/asyncapi.yaml on
+      # purpose, the same way poetry.lock is committed alongside
+      # pyproject.toml. Regenerated via `make asyncapi-build`.
       - id: check-added-large-files
         args: ["--maxkb=1000"]
+        exclude: ^docs/asyncapi\.html$
       - id: check-merge-conflict
       - id: check-toml
       - id: mixed-line-ending
         args: ["--fix=lf"]
+        exclude: ^docs/asyncapi\.html$
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.6.9

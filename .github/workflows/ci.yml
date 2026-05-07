@@ -127,3 +127,15 @@ jobs:
 
       - name: Pytest
         run: poetry run pytest
+
+  asyncapi:
+    name: AsyncAPI schema (validate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate docs/asyncapi.yaml
+        # The asyncapi/cli image is what `make asyncapi-validate` uses
+        # locally — keep them in lock-step so a yaml that fails CI also
+        # fails on the contributor's laptop, and vice versa.
+        run: docker run --rm -v "$PWD/docs:/work" asyncapi/cli validate /work/asyncapi.yaml
