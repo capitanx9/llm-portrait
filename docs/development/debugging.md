@@ -133,11 +133,11 @@ change the working directory layout.
 
 ## When not to use the debugger
 
-For most bugs `print` plus a tailed log of the right service is
-faster than attaching:
+For most bugs a `logger.info(...)` plus a tailed log of the right
+service is faster than attaching:
 
 ```bash
-make logs-web        # Django / gunicorn
+make logs-web        # Django / gunicorn / daphne
 make logs-ws         # daphne / Channels
 make logs-celery     # Celery worker
 make logs-db         # Postgres
@@ -145,3 +145,57 @@ make logs-db         # Postgres
 
 Reach for the debugger when the bug is in branching logic, async
 flow, or when you genuinely need to walk a complex object live.
+
+## Logging
+
+Logs go through **loguru** — Django, DRF, Channels, daphne, Celery,
+gunicorn all funnel into one stream with consistent formatting. In the
+code use loguru directly:
+
+```python
+from loguru import logger
+
+logger.info("user signed up", extra={"user_id": user.id})
+logger.exception("ollama call failed")  # captures the traceback
+```
+
+Anything that still uses stdlib `logging.getLogger(...)` (third-party
+libs) is intercepted at the root logger and reformatted, so it shows up
+in the same stream.
+
+### Format
+
+Two formats, switched by env var `LOG_FORMAT`:
+
+- `human` (default in dev) — colored, one line per record:
+
+  ```
+  2026-05-07 10:59:45.969 | INFO     | app.users.views:generate:42 | request_id=a1b2c3d4 | user signed up
+  ```
+
+- `json` (set in prod) — one JSON object per record, ready for log
+  shippers (CloudWatch, Loki, etc.).
+
+Set `LOG_LEVEL` to `DEBUG` when you want SQL queries and the noisy
+internals; default is `INFO`.
+
+### Request id
+
+Every HTTP request and every WebSocket connection gets a short
+`request_id` (12 hex chars). It's:
+
+- attached to every log line emitted while the request runs
+  (`logger.contextualize(request_id=...)` in
+  `app.core.middleware.RequestIdMiddleware` for HTTP and
+  `app.ws.middleware.RequestIdMiddleware` for WS);
+- echoed back as the `X-Request-ID` response header so a frontend (or
+  curl with `-i`) can quote it when reporting a bug;
+- read from an incoming `X-Request-ID` header if the caller already
+  supplies one — useful for correlating across services.
+
+Grep one id and you get the entry log, the SQL queries, the signal
+fires, the Celery task pickup, and the email send for that one request:
+
+```bash
+make logs-web | grep a1b2c3d4
+```

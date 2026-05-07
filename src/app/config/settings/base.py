@@ -42,6 +42,9 @@ LOCAL_APPS = [
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
+    # First so every other middleware/view runs inside the request-id
+    # logger context and shows up under the same id in logs.
+    "app.core.middleware.RequestIdMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -101,6 +104,38 @@ STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# ==============================================================================
+# Logging
+# ==============================================================================
+# loguru is wired up in app.config.logging (called from manage.py / wsgi.py /
+# asgi.py / celery.py). Django ships a DEFAULT_LOGGING dict that attaches a
+# StreamHandler to the "django" logger — child loggers like
+# "django.channels.server" propagate up to it AND to root, which is how the
+# same access-log line ended up printed twice (once raw via Django's stream,
+# once formatted via our InterceptHandler at root). Overriding the "django"
+# logger here with handlers=[] and propagate=True keeps the records flowing
+# to root (and from there into loguru) but drops the duplicate stream.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "loggers": {
+        name: {"handlers": [], "propagate": True, "level": "INFO"}
+        for name in (
+            "django",
+            "django.server",
+            "django.request",
+            "django.channels.server",
+            "daphne",
+            "daphne.server",
+            "daphne.management.commands.runserver",
+            "daphne.http_protocol",
+            "daphne.ws_protocol",
+            "channels",
+            "channels.server",
+        )
+    },
+}
 
 # ==============================================================================
 # Celery

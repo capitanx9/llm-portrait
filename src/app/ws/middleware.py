@@ -1,9 +1,11 @@
+import uuid
 from typing import Any
 from urllib.parse import parse_qs
 
 from channels.db import database_sync_to_async
 from channels.middleware import BaseMiddleware
 from django.contrib.auth.models import AnonymousUser
+from loguru import logger
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.tokens import UntypedToken
 
@@ -45,3 +47,20 @@ class JWTAuthMiddleware(BaseMiddleware):
             return AnonymousUser()
 
         return await _get_user(user_id)
+
+
+class RequestIdMiddleware(BaseMiddleware):
+    """Generate a request id per WebSocket connection and bind it to loguru.
+
+    HTTP requests get this from the same-named middleware in app.core; WS
+    connections live longer and don't pass through Django's middleware chain,
+    so we replicate the binding at the ASGI layer. Every log line emitted
+    inside the consumer's lifecycle (connect, receive_json, disconnect) will
+    carry `request_id=...`.
+    """
+
+    async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> Any:
+        request_id = uuid.uuid4().hex[:12]
+        scope["request_id"] = request_id
+        with logger.contextualize(request_id=request_id):
+            return await super().__call__(scope, receive, send)

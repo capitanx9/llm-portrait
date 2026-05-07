@@ -29,17 +29,23 @@ def _maybe_enable_debugpy() -> None:
     import debugpy
 
     debugpy.listen(("0.0.0.0", 5678))  # noqa: S104 — must bind on the container's external interface so the host's VS Code can connect
+    from loguru import logger
+
     if os.environ.get("DEBUGPY_WAIT") == "1":
-        print("⏳ debugpy listening on :5678, waiting for client...", flush=True)
+        logger.info("debugpy listening on :5678, waiting for client...")
         debugpy.wait_for_client()
-        print("✅ debugger attached", flush=True)
+        logger.info("debugger attached")
     else:
-        print("⚙️  debugpy listening on :5678 (attach when you want)", flush=True)
+        logger.info("debugpy listening on :5678 (attach when you want)")
 
 
 def main() -> None:
     sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "app.config.settings.dev")
+
+    from app.config.logging import configure_logging
+
+    configure_logging()
 
     _maybe_enable_debugpy()
 
