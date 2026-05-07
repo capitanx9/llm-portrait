@@ -381,3 +381,31 @@ is not.
 | `make logs-ws` | daphne / Channels (the dedicated WS service in dev) |
 | `make logs-celery` | Celery worker |
 | `make logs-db` | Postgres |
+
+## Manual WS chat demo
+
+Automated coverage of the WebSocket chat lives in
+`tests/test_chat_ws.py` (auth, broadcast, isolation, invalid JSON,
+persistence). When you want to *eyeball* the log output instead — see
+`request_id` stitching across connect/message/disconnect, see what
+fields `_handshake_fields()` extracts from a real client — there's a
+helper:
+
+```bash
+make ws-demo
+```
+
+It registers two demo users (idempotent), grabs fresh JWTs, and prints
+two ready-to-paste `websocat` commands — one with `User-Agent` /
+`Origin` headers (so the connect log line shows the enriched
+handshake fields), one bare (so you can see how the empty-fields
+filter works).
+
+Pair it with `make logs-ws` in another terminal. Requires
+`brew install websocat`.
+
+Override the defaults via env if you need different names/room:
+
+```bash
+WS_DEMO_USER_A=alice WS_DEMO_USER_B=bob WS_DEMO_ROOM=my-room make ws-demo
+```
