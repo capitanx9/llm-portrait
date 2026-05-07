@@ -12,9 +12,10 @@ readable lines with module:line and bound context. In prod
 can parse it.
 
 Per-request context (request id, user) is attached by the request-id
-middleware via `logger.contextualize(...)`; the format strings below
-include `extra[request_id]` so the value shows up in every line emitted
-during that request.
+middleware via `logger.contextualize(...)`; the human format always
+prints `request_id=...`, and any extra fields bound on a specific log
+call (`logger.info(..., room=..., user=...)`) are auto-rendered as
+`key=value` pairs by `_human_format` without listing them up front.
 """
 
 from __future__ import annotations
@@ -33,13 +34,37 @@ if TYPE_CHECKING:
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
 LOG_FORMAT = os.environ.get("LOG_FORMAT", "human").lower()
 
-_HUMAN_FORMAT = (
+_HUMAN_BASE = (
     "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
     "<level>{level: <8}</level> | "
     "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | "
-    "<magenta>request_id={extra[request_id]}</magenta> | "
-    "<level>{message}</level>"
+    "<magenta>request_id={extra[request_id]}</magenta>"
 )
+
+
+def _human_format(record: Record) -> str:
+    """Build the human-format template, including any user-bound extras.
+
+    Loguru's static format string can only render extras whose keys are
+    listed up front (`{extra[room]}` etc.). That worked for the fixed
+    `request_id` field, but every other `logger.bind(...)` field
+    (room/user/length/method/status/duration_ms — anything we attach to
+    a structured event) ended up invisible in the human-format log,
+    visible only in `LOG_FORMAT=json`.
+
+    Using a `format=` callable lets us inspect `record["extra"]` and
+    generate a `key=value` suffix for whichever extras this particular
+    record carries. The output is still a *template string* (loguru
+    interpolates `{message}` etc. itself), so colour tags are preserved
+    and the JSON sink is unaffected.
+    """
+    suffix = " ".join(
+        f"<yellow>{key}={{extra[{key}]}}</yellow>" for key in record["extra"] if key != "request_id"
+    )
+    body = f"{_HUMAN_BASE}{(' | ' + suffix) if suffix else ''} | <level>{{message}}</level>"
+    # When format is a callable loguru does NOT auto-append the exception
+    # block, so add it explicitly — otherwise tracebacks vanish in dev.
+    return body + "\n{exception}"
 
 
 class InterceptHandler(logging.Handler):
@@ -94,7 +119,7 @@ def configure_logging() -> None:
         logger.add(
             sys.stdout,
             level=LOG_LEVEL,
-            format=_HUMAN_FORMAT,
+            format=_human_format,
             colorize=True,
             backtrace=False,
         )

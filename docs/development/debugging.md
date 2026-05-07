@@ -251,16 +251,22 @@ The middleware layer adds the per-request context:
 
 Two formats, switched by env var `LOG_FORMAT`:
 
-- `human` (default in dev) — colored, one line per record:
+- `human` (default in dev) — colored, one line per record. Any
+  structured fields you bind on the call (`logger.info("...",
+  room=x, user=y)`) are auto-rendered as `key=value` pairs:
 
   ```
-  2026-05-07 10:59:45.969 | INFO     | app.users.views:generate:42 | request_id=a1b2c3d4 | user signed up
+  2026-05-07 10:59:45.969 | INFO     | app.ws.consumers:receive_json:98 | request_id=a1b2c3d4 | room=ws-debug user=wsbob length=13 | ws message
   ```
+
+  This is done by a `format=` callable in `app.config.logging` that
+  inspects each record's `extra` dict, so you don't need to list new
+  fields in a format string up front.
 
 - `json` (set in prod) — one JSON object per record, ready for log
-  shippers (CloudWatch, Loki, etc.). Every `logger.bind(key=value)`
-  field becomes a top-level key, so structured queries are possible
-  without parsing free text.
+  shippers (CloudWatch, Loki, etc.). The same bound fields become
+  top-level keys, so structured queries are possible without parsing
+  free text.
 
 Set `LOG_LEVEL` to `DEBUG` when you want SQL queries and noisy
 internals; default is `INFO`.
@@ -375,3 +381,31 @@ is not.
 | `make logs-ws` | daphne / Channels (the dedicated WS service in dev) |
 | `make logs-celery` | Celery worker |
 | `make logs-db` | Postgres |
+
+## Manual WS chat demo
+
+Automated coverage of the WebSocket chat lives in
+`tests/test_chat_ws.py` (auth, broadcast, isolation, invalid JSON,
+persistence). When you want to *eyeball* the log output instead — see
+`request_id` stitching across connect/message/disconnect, see what
+fields `_handshake_fields()` extracts from a real client — there's a
+helper:
+
+```bash
+make ws-demo
+```
+
+It registers two demo users (idempotent), grabs fresh JWTs, and prints
+two ready-to-paste `websocat` commands — one with `User-Agent` /
+`Origin` headers (so the connect log line shows the enriched
+handshake fields), one bare (so you can see how the empty-fields
+filter works).
+
+Pair it with `make logs-ws` in another terminal. Requires
+`brew install websocat`.
+
+Override the defaults via env if you need different names/room:
+
+```bash
+WS_DEMO_USER_A=alice WS_DEMO_USER_B=bob WS_DEMO_ROOM=my-room make ws-demo
+```
