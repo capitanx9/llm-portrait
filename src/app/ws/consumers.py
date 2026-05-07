@@ -18,15 +18,21 @@ def _handshake_fields(scope: dict[str, Any]) -> dict[str, Any]:
     logging exactly once on `connect`. After that the connection is
     pure binary frames with no per-frame headers, and re-logging the
     handshake fields on every message would just be noise.
+
+    Empty/missing fields are dropped from the returned dict so the
+    human log doesn't spam `user_agent=None origin=None subprotocols=None`
+    for minimalist clients (e.g. websocat) that don't send them. Browsers
+    will fill them in.
     """
     headers = {k.decode().lower(): v.decode() for k, v in scope.get("headers", [])}
     client = scope.get("client") or ("", 0)
-    return {
+    fields: dict[str, Any] = {
         "client_ip": client[0],
         "user_agent": headers.get("user-agent"),
         "origin": headers.get("origin"),
         "subprotocols": scope.get("subprotocols") or None,
     }
+    return {k: v for k, v in fields.items() if v}
 
 
 class ChatConsumer(AsyncJsonWebsocketConsumer):
