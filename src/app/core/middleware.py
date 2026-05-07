@@ -93,18 +93,9 @@ class HttpAccessLogMiddleware:
             bound["request_body"] = _decode_body(request_body, request.content_type or "")
             bound["response_headers"] = redact_headers(dict(response.items()))
             bound["response_body"] = _decode_response_body(response)
-            # Append a compact JSON dump to the message itself so the body
-            # shows up in the human-readable log format too (loguru's format
-            # string can't render arbitrary `extra` keys without listing
-            # them up front). In LOG_FORMAT=json the same data is emitted
-            # structurally via `serialize=True` and the extra fields above.
-            message = f"{message} | {json.dumps({k: bound[k] for k in _DUMP_KEYS}, default=str)}"
 
         logger.bind(**bound).log(_level_for(response.status_code), message)
         return response
-
-
-_DUMP_KEYS = ("request_headers", "request_body", "response_headers", "response_body")
 
 
 def _user_id(request: HttpRequest) -> int | str:

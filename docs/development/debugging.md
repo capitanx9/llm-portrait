@@ -251,16 +251,22 @@ The middleware layer adds the per-request context:
 
 Two formats, switched by env var `LOG_FORMAT`:
 
-- `human` (default in dev) — colored, one line per record:
+- `human` (default in dev) — colored, one line per record. Any
+  structured fields you bind on the call (`logger.info("...",
+  room=x, user=y)`) are auto-rendered as `key=value` pairs:
 
   ```
-  2026-05-07 10:59:45.969 | INFO     | app.users.views:generate:42 | request_id=a1b2c3d4 | user signed up
+  2026-05-07 10:59:45.969 | INFO     | app.ws.consumers:receive_json:98 | request_id=a1b2c3d4 | room=ws-debug user=wsbob length=13 | ws message
   ```
+
+  This is done by a `format=` callable in `app.config.logging` that
+  inspects each record's `extra` dict, so you don't need to list new
+  fields in a format string up front.
 
 - `json` (set in prod) — one JSON object per record, ready for log
-  shippers (CloudWatch, Loki, etc.). Every `logger.bind(key=value)`
-  field becomes a top-level key, so structured queries are possible
-  without parsing free text.
+  shippers (CloudWatch, Loki, etc.). The same bound fields become
+  top-level keys, so structured queries are possible without parsing
+  free text.
 
 Set `LOG_LEVEL` to `DEBUG` when you want SQL queries and noisy
 internals; default is `INFO`.
