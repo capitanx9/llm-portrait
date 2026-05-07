@@ -42,6 +42,13 @@ LOCAL_APPS = [
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
+    # First so every other middleware/view runs inside the request-id
+    # logger context and shows up under the same id in logs.
+    "app.core.middleware.RequestIdMiddleware",
+    # Second: needs request_id already bound, AuthenticationMiddleware not
+    # yet applied (we read request.user *after* get_response returns, by
+    # which point auth has run). One structured access log per request.
+    "app.core.middleware.HttpAccessLogMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -101,6 +108,51 @@ STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# ==============================================================================
+# Logging
+# ==============================================================================
+# loguru is wired up in app.config.logging (called from manage.py / wsgi.py /
+# asgi.py / celery.py). Django ships a DEFAULT_LOGGING dict that attaches a
+# StreamHandler to the "django" logger — child loggers like
+# "django.channels.server" propagate up to it AND to root, which is how the
+# same access-log line ended up printed twice (once raw via Django's stream,
+# once formatted via our InterceptHandler at root). Overriding the "django"
+# logger here with handlers=[] and propagate=True keeps the records flowing
+# to root (and from there into loguru) but drops the duplicate stream.
+_LOGGING_NEUTRAL = (
+    "django",
+    "django.server",
+    "daphne",
+    "daphne.server",
+    "daphne.http_protocol",
+    "daphne.ws_protocol",
+    "channels",
+    "channels.server",
+)
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "loggers": {
+        # Neutralised so they propagate to root (where loguru picks them up)
+        # without their own StreamHandler double-printing.
+        **{name: {"handlers": [], "propagate": True, "level": "INFO"} for name in _LOGGING_NEUTRAL},
+        # Silenced at ERROR: HttpAccessLogMiddleware already writes a richer
+        # line per request (method/path/status/duration/user/view), and
+        # these loggers were just duplicating it.
+        # - daphne's "HTTP GET /foo 200 [...]" access log
+        # - django.request's "Unauthorized: /foo" / "Bad Request: /foo"
+        # ERROR still surfaces real 5xx server errors from either logger.
+        "django.channels.server": {"handlers": [], "propagate": True, "level": "ERROR"},
+        "django.request": {"handlers": [], "propagate": True, "level": "ERROR"},
+        "daphne.management.commands.runserver": {
+            "handlers": [],
+            "propagate": True,
+            "level": "ERROR",
+        },
+    },
+}
 
 # ==============================================================================
 # Celery
