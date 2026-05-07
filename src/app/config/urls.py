@@ -8,6 +8,6 @@ urlpatterns = [
     path("health/", include("app.core.urls")),
     path("api/", include("app.api.urls")),
     # Symmetric to /api/docs/ (drf-spectacular Swagger UI) but for the
-    # WebSocket side. The HTML is pre-rendered from docs/asyncapi.yaml.
+    # WebSocket side. The HTML is pre-rendered from docs/api/ws/asyncapi.yaml.
     path("ws/docs/", asyncapi_docs, name="asyncapi-docs"),
 ]
