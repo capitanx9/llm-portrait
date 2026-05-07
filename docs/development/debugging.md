@@ -199,3 +199,40 @@ fires, the Celery task pickup, and the email send for that one request:
 ```bash
 make logs-web | grep a1b2c3d4
 ```
+
+### Access log
+
+`HttpAccessLogMiddleware` writes one structured line per HTTP request
+with method, path, status, duration, user, view name, client IP and
+request id. Severity follows the status code: 2xx/3xx → INFO, 4xx →
+WARNING, 5xx → ERROR — so `grep WARNING` already gives you every failed
+request without further filters.
+
+### Dumping request/response bodies (dev only)
+
+When metadata isn't enough — you want to see the JSON the frontend
+actually sent, or what DRF returned — flip the env flag:
+
+```bash
+LOG_HTTP_BODY=1 make up
+```
+
+Each access line gains four fields: `request_headers`, `request_body`,
+`response_headers`, `response_body`. JSON bodies are parsed structurally
+(in `LOG_FORMAT=json` you can grep them with `jq`), other content types
+are reported as a one-line summary (`<multipart/form-data, 12345
+bytes>`).
+
+Two layers of redaction run before logging:
+
+- Headers `Authorization`, `Cookie`, `Set-Cookie`, `X-Api-Key`,
+  `Proxy-Authorization`, `X-Auth-Token` → values replaced with `***`.
+- JSON keys whose name contains `password`, `token`, `secret`, `api_key`,
+  `access`, `refresh` (any depth) → values replaced with `***`.
+
+Bodies larger than 4 KB are truncated and the line is tagged
+`"_truncated": true`.
+
+**Never set `LOG_HTTP_BODY=1` in production.** Even with redaction the
+dump still contains email addresses, friend lists, generated portraits
+and other payload data that has no business being on disk forever.
