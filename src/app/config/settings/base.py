@@ -233,7 +233,12 @@ SIMPLE_JWT = {
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "LLM Portrait API",
-    "DESCRIPTION": "REST + WebSocket API for the LLM Portrait project.",
+    "DESCRIPTION": (
+        "REST API for the LLM Portrait project.\n\n"
+        "The real-time WebSocket chat side is documented separately as an "
+        "[AsyncAPI specification](/ws/docs/) — same project, different "
+        "transport."
+    ),
     "VERSION": "0.1.0",
     "SERVE_INCLUDE_SCHEMA": False,
 }

@@ -1,0 +1,224 @@
+asyncapi: 3.1.0
+
+info:
+  title: LLM Portrait WebSocket API
+  version: 0.1.0
+  description: |
+    Real-time chat over WebSocket. Authentication is JWT-based, the token
+    is passed as a query string parameter on the upgrade request (the
+    handshake is just an HTTP GET, so query is the natural place for it —
+    custom headers can't be set by browser WebSocket clients).
+
+    Companion REST API (auth, room CRUD) is documented at
+    [`/api/docs/`](/api/docs/).
+
+  contact:
+    name: LLM Portrait
+    url: https://llm-portrait.gotdns.ch
+
+  license:
+    name: MIT
+
+servers:
+  dev:
+    host: localhost:8001
+    protocol: ws
+    description: Local daphne running the dedicated `ws` service from `docker-compose.dev.yml`.
+  prod:
+    host: llm-portrait.gotdns.ch
+    protocol: wss
+    description: Production behind nginx with Let's Encrypt TLS.
+
+channels:
+  chatRoom:
+    address: /ws/chat/{name}/
+    description: |
+      Per-room chat channel. Every connected client in the same `name`
+      receives a copy of every message posted to the room. The connection
+      stays open until either side closes it; there is no automatic
+      timeout from the server.
+    parameters:
+      name:
+        description: |
+          Room name. Free-form string, used as the channel-layer group
+          identifier (`chat_<name>`). Rooms are created on first connect
+          if they don't exist.
+        examples: [general, ws-debug]
+    messages:
+      ChatMessageIn:
+        $ref: '#/components/messages/ChatMessageIn'
+      ChatMessageOut:
+        $ref: '#/components/messages/ChatMessageOut'
+      InvalidJsonError:
+        $ref: '#/components/messages/InvalidJsonError'
+      InternalError:
+        $ref: '#/components/messages/InternalError'
+
+operations:
+  sendMessage:
+    action: send
+    channel:
+      $ref: '#/channels/chatRoom'
+    summary: Post a chat message into the room.
+    description: |
+      Client sends a JSON frame containing `{"text": "..."}`. The server
+      saves the message to the database, attaches the sender's username
+      and a server-side id, then broadcasts the result to every client
+      currently connected to the same room (including the sender).
+
+      Empty or whitespace-only `text` is silently ignored. `text` longer
+      than 4000 characters is truncated.
+
+      A frame whose payload is not valid JSON is answered with an
+      `InvalidJsonError` frame on the same connection — the server does
+      not close the socket.
+    messages:
+      - $ref: '#/channels/chatRoom/messages/ChatMessageIn'
+
+  receiveMessage:
+    action: receive
+    channel:
+      $ref: '#/channels/chatRoom'
+    summary: Listen for chat messages broadcast into the room.
+    description: |
+      The server pushes a `ChatMessageOut` frame for every message posted
+      to this room by any connected client. There is no explicit
+      subscription step — joining the channel (i.e. opening the socket)
+      is the subscription.
+
+      Error frames (`InvalidJsonError`, `InternalError`) may also arrive
+      on this channel; they're tied to a specific frame the client just
+      sent rather than to the broadcast stream.
+    messages:
+      - $ref: '#/channels/chatRoom/messages/ChatMessageOut'
+      - $ref: '#/channels/chatRoom/messages/InvalidJsonError'
+      - $ref: '#/channels/chatRoom/messages/InternalError'
+
+components:
+  messages:
+    ChatMessageIn:
+      name: ChatMessageIn
+      title: Outgoing chat message
+      summary: Frame the client sends to post a message into the room.
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ChatMessageInPayload'
+      examples:
+        - name: hello
+          payload:
+            text: "hello room"
+
+    ChatMessageOut:
+      name: ChatMessageOut
+      title: Broadcast chat message
+      summary: Frame the server sends for every message posted to the room.
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ChatMessageOutPayload'
+      examples:
+        - name: hello-broadcast
+          payload:
+            id: 42
+            sender: "alice"
+            text: "hello room"
+            created_at: "2026-05-07T12:39:12.075135+00:00"
+
+    InvalidJsonError:
+      name: InvalidJsonError
+      title: Invalid JSON frame error
+      summary: |
+        Returned when the client sends a frame whose payload is not valid
+        JSON. The connection stays open — the client may immediately send
+        a corrected frame.
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/InvalidJsonErrorPayload'
+      examples:
+        - name: not-json
+          payload:
+            error: "invalid_json"
+            detail: "Expecting value: line 1 column 1 (char 0)"
+
+    InternalError:
+      name: InternalError
+      title: Internal server error
+      summary: |
+        Returned when the server failed to handle a valid request — for
+        example a database write that didn't go through. Logged with a
+        full traceback under the connection's `request_id`.
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/InternalErrorPayload'
+      examples:
+        - name: not-saved
+          payload:
+            error: "internal"
+            detail: "message not saved"
+
+  schemas:
+    ChatMessageInPayload:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
+          maxLength: 4000
+          description: |
+            Free-form chat text. Whitespace-only `text` is ignored, no
+            response frame is sent. Strings longer than 4000 characters
+            are truncated server-side.
+
+    ChatMessageOutPayload:
+      type: object
+      required: [id, sender, text, created_at]
+      properties:
+        id:
+          type: integer
+          description: Server-side primary key of the persisted message.
+        sender:
+          type: string
+          description: Username of the user who posted the message.
+        text:
+          type: string
+          description: The persisted (and possibly truncated) message text.
+        created_at:
+          type: string
+          format: date-time
+          description: ISO-8601 UTC timestamp of when the row was written.
+
+    InvalidJsonErrorPayload:
+      type: object
+      required: [error, detail]
+      properties:
+        error:
+          type: string
+          enum: [invalid_json]
+        detail:
+          type: string
+          description: The JSONDecodeError message, useful for quick local debugging.
+
+    InternalErrorPayload:
+      type: object
+      required: [error, detail]
+      properties:
+        error:
+          type: string
+          enum: [internal]
+        detail:
+          type: string
+
+  securitySchemes:
+    jwtQueryToken:
+      type: httpApiKey
+      in: query
+      name: token
+      description: |
+        Access token (the `access` field of the `/api/auth/login/`
+        response). Pass it as `?token=<jwt>` on the WebSocket upgrade
+        URL — for example `ws://localhost:8001/ws/chat/general/?token=eyJhbG...`.
+        Browser WebSocket clients can't set custom headers, which is why
+        the query string is the documented place. Connections without a
+        valid token are closed with code 4001 immediately after the
+        handshake.
+
+  serverVariables: {}
