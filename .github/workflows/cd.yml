@@ -103,8 +103,65 @@ jobs:
       - name: Wait for app to settle
         run: sleep 15
 
-      - name: Curl /health/
+      - name: Curl /health/ (legacy Lab 2 endpoint)
         run: |
           curl -fsS --max-time 30 https://${{ secrets.EC2_HOST_DOMAIN }}/health/ \
             | tee /tmp/health.json
           grep -q '"status":\s*"ok"' /tmp/health.json
+
+      - name: Curl /api/health/ (DRF endpoint)
+        # Same payload, different code path — proves the DRF stack and its
+        # router survived the deploy, not just the legacy Django view.
+        run: |
+          curl -fsS --max-time 30 https://${{ secrets.EC2_HOST_DOMAIN }}/api/health/ \
+            | tee /tmp/api-health.json
+          grep -q '"status":\s*"ok"' /tmp/api-health.json
+
+      - name: Curl /ws/docs/ (AsyncAPI viewer)
+        # /ws/docs/ is the only HTTP route served by daphne (the AsyncAPI
+        # HTML). 200 here proves nginx routes /ws/* to ws:8001 and the HTTP
+        # side of daphne is alive — but it goes through the plain HTTP path,
+        # not the WebSocket upgrade path. The handshake step below covers the
+        # upgrade path itself.
+        run: |
+          curl -fsS --max-time 30 -o /dev/null -w "%{http_code}" \
+            https://${{ secrets.EC2_HOST_DOMAIN }}/ws/docs/ \
+            | grep -q "^200$"
+
+      - name: WebSocket handshake (anonymous → expects 403 reject)
+        # Real upgrade request to /ws/chat/, no JWT. Our ChatConsumer rejects
+        # unauthenticated connections by calling close() before accept(),
+        # which Channels surfaces as HTTP 403 on the upgrade. That single
+        # 403 proves three things at once:
+        #   1. nginx forwarded the Upgrade/Connection headers (otherwise
+        #      daphne would 400 the request before our consumer ever ran);
+        #   2. daphne is alive and routing /ws/chat/<name>/ to ChatConsumer;
+        #   3. our auth gate works — anon access is denied, not silently let
+        #      through.
+        # If we ever change ChatConsumer to accept-then-close (so the close
+        # code is observable), switch this to expect ConnectionClosed(4001).
+        run: |
+          python3 -m pip install --quiet 'websockets>=12'
+          python3 - <<'PY'
+          import asyncio, sys
+          import websockets
+          from websockets.exceptions import InvalidStatus
+
+          URL = "wss://${{ secrets.EC2_HOST_DOMAIN }}/ws/chat/smoke/"
+
+          async def main() -> int:
+              try:
+                  async with websockets.connect(URL):
+                      pass
+              except InvalidStatus as e:
+                  status = e.response.status_code
+                  if status == 403:
+                      print("OK: ws upgrade reached daphne, anon rejected with 403")
+                      return 0
+                  print(f"FAIL: expected 403, got {status}")
+                  return 1
+              print("FAIL: anonymous handshake succeeded — auth gate is broken")
+              return 1
+
+          sys.exit(asyncio.run(main()))
+          PY
