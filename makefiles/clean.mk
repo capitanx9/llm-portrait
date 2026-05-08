@@ -1,3 +1,5 @@
+##@ Cleanup
+
 .PHONY: clean
 
 clean: ## Remove caches and build artifacts

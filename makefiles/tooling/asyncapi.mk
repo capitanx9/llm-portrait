@@ -1,3 +1,5 @@
+##@ AsyncAPI
+
 .PHONY: asyncapi-validate asyncapi-build
 
 # We use the official asyncapi/cli docker image so the project doesn't grow

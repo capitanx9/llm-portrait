@@ -1,3 +1,5 @@
+##@ Lint & format
+
 .PHONY: lint format mypy
 
 lint: ## Run ruff check and mypy

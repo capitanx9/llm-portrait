@@ -1,3 +1,5 @@
+##@ Poetry
+
 .PHONY: install info lock
 
 install: ## Install dependencies and pre-commit hooks

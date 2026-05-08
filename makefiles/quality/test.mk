@@ -1,3 +1,5 @@
+##@ Tests
+
 .PHONY: test test-cov
 
 test: ## Run pytest inside the web container (needs `make up` first)

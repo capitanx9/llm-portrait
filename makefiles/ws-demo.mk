@@ -1,3 +1,5 @@
+##@ WebSocket demo
+
 .PHONY: ws-demo
 
 # Demo helpers for poking the WebSocket chat by hand. Automated coverage
