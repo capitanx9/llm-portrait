@@ -11,12 +11,14 @@ Project documentation, organised by audience.
 
 For someone calling the project from the outside.
 
-- [api/rest/](api/rest/) — REST endpoints (authentication, chat
-  rooms, portraits). Generated documentation is served at
-  `/api/docs/` when the stack is up.
-- [api/ws/](api/ws/) — real-time WebSocket chat. AsyncAPI specification
-  + pre-rendered HTML viewer at `/ws/docs/`. Hands-on exploration via
-  the Bruno collection at [`../bruno/`](../bruno/).
+- [api/rest.md](api/rest.md) — REST endpoints (authentication, chat
+  rooms, portraits). Schema is generated at runtime by drf-spectacular
+  and served at `/api/docs/`.
+- [api/ws.md](api/ws.md) — real-time WebSocket chat. AsyncAPI spec at
+  [`schemas/asyncapi.yaml`](../schemas/asyncapi.yaml), pre-rendered
+  HTML viewer at `/ws/docs/`.
+- Hands-on exploration for both: the Bruno collection at
+  [`../bruno/`](../bruno/).
 
 ## Debugging
 

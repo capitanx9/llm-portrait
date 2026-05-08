@@ -134,8 +134,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Validate docs/api/ws/asyncapi.yaml
+      - name: Validate schemas/asyncapi.yaml
         # The asyncapi/cli image is what `make asyncapi-validate` uses
         # locally — keep them in lock-step so a yaml that fails CI also
         # fails on the contributor's laptop, and vice versa.
-        run: docker run --rm -v "$PWD/docs/api/ws:/work" asyncapi/cli validate /work/asyncapi.yaml
+        run: docker run --rm -v "$PWD/schemas:/work" asyncapi/cli validate /work/asyncapi.yaml

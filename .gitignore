@@ -42,9 +42,4 @@ htmlcov/
 .DS_Store
 
 # Intermediate AsyncAPI generator output (we keep only the final HTML).
-docs/api/ws/_asyncapi-out/
-
-# Postman CLI's "Local View" scaffolding — we don't use it; the canonical
-# collection + envs live in docs/api/ws/postman/ as plain JSON exports.
-.postman/
-/postman/
+schemas/_asyncapi-out/

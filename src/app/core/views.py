@@ -17,17 +17,17 @@ def health(request: HttpRequest) -> JsonResponse:
 def asyncapi_docs(request: HttpRequest) -> HttpResponseBase:
     """Serve the pre-rendered AsyncAPI HTML.
 
-    The HTML is generated offline from `docs/api/ws/asyncapi.yaml` via
+    The HTML is generated offline from `schemas/asyncapi.yaml` via
     `make asyncapi-build` and committed to the repo, the same way
     drf-spectacular's Swagger UI is served from a static page. We don't
     re-render at request time because the AsyncAPI HTML template needs
     a Node toolchain that we don't ship inside the Python image.
     """
-    path = Path(settings.BASE_DIR) / "docs" / "api" / "ws" / "asyncapi.html"
+    path = Path(settings.BASE_DIR) / "schemas" / "asyncapi.html"
     if not path.exists():
         return HttpResponse(
             "AsyncAPI docs not built. Run `make asyncapi-build` and commit "
-            "the regenerated docs/api/ws/asyncapi.html.",
+            "the regenerated schemas/asyncapi.html.",
             status=503,
             content_type="text/plain",
         )

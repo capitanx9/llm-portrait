@@ -35,7 +35,7 @@ refresh token. See the Swagger page for the full auth flow.
 
 For repeatable scenarios with auth tokens auto-injected (Login → AI →
 Logout), negative-case fixtures, or sharing a flow with someone else,
-use the [Bruno collection](../../../bruno/) at the repo root. It
+use the [Bruno collection](../../bruno/) at the repo root. It
 covers the same endpoints Swagger UI does, plus the WebSocket side in
 the same collection.
 
@@ -87,4 +87,4 @@ Error responses share the project-wide `{"detail": "..."}` shape:
 | 503 | Any node in the pipeline raised — fallback returned. |
 
 The internal pipeline (detect → route → translate / summarize → fallback)
-is documented in full in [`docs/langgraph.md`](../../langgraph.md).
+is documented in full in [`docs/langgraph.md`](../langgraph.md).

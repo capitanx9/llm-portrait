@@ -17,7 +17,7 @@ services:
       - ./pyproject.toml:/app/pyproject.toml
       # AsyncAPI HTML is baked into the image, but mount it through in dev
       # so `make asyncapi-build` is visible at /ws/docs/ without a rebuild.
-      - ./docs/api/ws/asyncapi.html:/app/docs/api/ws/asyncapi.html:ro
+      - ./schemas/asyncapi.html:/app/schemas/asyncapi.html:ro
     ports:
       - "8000:8000"
       - "5678:5678"  # debugpy (only listens when DEBUGPY=1; harmless otherwise)
