@@ -1,0 +1,38 @@
+meta {
+  name: Chat room (WS)
+  type: ws
+  seq: 1
+}
+
+ws {
+  url: {{base_ws}}/ws/chat/{{room}}/?token={{access_token}}
+  auth: inherit
+}
+
+body:ws {
+  name: hello
+  content: '''
+    {"text": "hello from bruno"}
+  '''
+}
+
+body:ws {
+  name: empty text
+  content: '''
+    {"text": ""}
+  '''
+}
+
+body:ws {
+  name: long text
+  content: '''
+    {"text": "много много много много много много много букв"}
+  '''
+}
+
+body:ws {
+  name: invalid json (paste raw, switch to text)
+  content: '''
+    просто строка не json
+  '''
+}

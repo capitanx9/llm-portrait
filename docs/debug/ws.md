@@ -5,10 +5,10 @@ Two complementary tools:
 - **`make ws-demo`** — a CLI helper that prints two ready-to-paste
   `websocat` invocations for two demo users. Fastest way to eyeball a
   live two-user chat scenario in the terminal.
-- **Postman collection** in [`../api/ws/postman/`](../api/ws/postman/)
-  — GUI client with auth, query parameters and message templates
-  pre-configured. Best when you want to repeat the same scenario or
-  share it with someone else.
+- **Bruno collection** at [`../../bruno/`](../../bruno/) — GUI client
+  with auth, query parameters and four pre-saved messages on
+  `ws/chat-room.bru`. Best when you want to repeat the same scenario
+  or share it with someone else.
 
 For the other debug surfaces, see:
 
@@ -44,21 +44,16 @@ Override the defaults via env if you need different names/room:
 WS_DEMO_USER_A=alice WS_DEMO_USER_B=bob WS_DEMO_ROOM=my-room make ws-demo
 ```
 
-## Using the Postman collection
+## Using the Bruno collection
 
-Easiest path is to fork the live workspace:
+Open Bruno → *Open Collection* → pick `bruno/llm-portrait/`. Activate
+the `local` environment from the dropdown in the top-right. Run
+`auth/login.bru` once (the script writes both tokens into collection
+variables), then open `ws/chat-room.bru` and click *Connect*.
 
-> <https://www.postman.com/workspace/LLM-Portrait~5ea18d06-4274-46ad-94f5-37aae5a07b60/collection/69fcd027fa9ca218b33a5171?action=share&source=copy-link&creator=6728552>
-
-Then import one of the two environments from
-[`../api/ws/postman/`](../api/ws/postman/) so the URLs resolve to
-either local or prod. The full setup walkthrough — and the
-known-issue note about Postman's JSON export demoting WS requests to
-HTTP GET on import — lives in
-[`../api/ws/postman/README.md`](../api/ws/postman/README.md). That's
-the public "how to drive the WS API from a GUI" doc; this page is
-the internal "how to correlate the GUI activity with server logs"
-one.
+The full setup walkthrough lives in [`../../bruno/README.md`](../../bruno/README.md).
+That's the "how to drive the WS API from a GUI" doc; this page is
+the "how to correlate the GUI activity with server logs" one.
 
 Pair the GUI session with `make logs-ws` in a terminal. The same
 `request_id` is bound by the WS middleware on connect and stays on

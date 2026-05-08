@@ -7,7 +7,7 @@ For the other debug surfaces, see:
 
 - [`logging.md`](logging.md) — loguru, request_id, access log, body dump
 - [`http.md`](http.md) — Swagger UI as a debugging tool
-- [`ws.md`](ws.md) — `make ws-demo`, Postman, reading `make logs-ws`
+- [`ws.md`](ws.md) — `make ws-demo`, Bruno, reading `make logs-ws`
 
 ## How attach mode works
 

@@ -1,0 +1,18 @@
+meta {
+  name: Get room messages
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{base_http}}/api/chat/rooms/{{room}}/messages/?limit=50
+  auth: bearer
+}
+
+params:query {
+  limit: 50
+}
+
+auth:bearer {
+  token: {{access_token}}
+}

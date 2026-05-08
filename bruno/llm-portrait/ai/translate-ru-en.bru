@@ -1,0 +1,27 @@
+meta {
+  name: Translate (ru -> en)
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_http}}/api/ai/process/
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "action": "translate",
+    "message": "Привет, как дела?",
+    "target_language": "en"
+  }
+}

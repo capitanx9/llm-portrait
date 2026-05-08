@@ -1,0 +1,27 @@
+meta {
+  name: Translate (en -> fr)
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{base_http}}/api/ai/process/
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "action": "translate",
+    "message": "Hello, how are you?",
+    "target_language": "fr"
+  }
+}

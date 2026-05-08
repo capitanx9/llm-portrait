@@ -1,0 +1,25 @@
+meta {
+  name: Create room
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{base_http}}/api/chat/rooms/
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "{{room}}"
+  }
+}

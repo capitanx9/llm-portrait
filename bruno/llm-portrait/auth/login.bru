@@ -1,0 +1,35 @@
+meta {
+  name: Login (get JWT)
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{base_http}}/api/auth/login/
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "username": "{{username}}",
+    "password": "{{password}}"
+  }
+}
+
+script:post-response {
+  bru.setVar("access_token", res.body.access);
+  bru.setVar("refresh_token", res.body.refresh);
+}
+
+tests {
+  test("returns 200 with both tokens", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.access).to.be.a("string");
+    expect(res.body.refresh).to.be.a("string");
+  });
+}

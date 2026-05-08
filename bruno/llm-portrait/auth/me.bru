@@ -1,0 +1,14 @@
+meta {
+  name: Me (whoami)
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{base_http}}/api/auth/me/
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
