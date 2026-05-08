@@ -1,0 +1,23 @@
+meta {
+  name: 401 no token
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{base_http}}/api/ai/process/
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "action": "translate",
+    "message": "Hi",
+    "target_language": "fr"
+  }
+}

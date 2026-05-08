@@ -1,0 +1,14 @@
+meta {
+  name: List rooms
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_http}}/api/chat/rooms/
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}

@@ -7,7 +7,7 @@ For the other debug surfaces, see:
 
 - [`breakpoints.md`](breakpoints.md) — VS Code attach mode, debugpy
 - [`http.md`](http.md) — Swagger UI as a debugging tool
-- [`ws.md`](ws.md) — `make ws-demo`, Postman, reading `make logs-ws`
+- [`ws.md`](ws.md) — `make ws-demo`, Bruno, reading `make logs-ws`
 
 ## Why loguru, and what it gives us
 

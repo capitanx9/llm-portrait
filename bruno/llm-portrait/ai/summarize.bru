@@ -1,0 +1,31 @@
+meta {
+  name: Summarize conversation
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{base_http}}/api/ai/process/
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "action": "summarize",
+    "conversation": [
+      {"role": "user", "content": "Hi there"},
+      {"role": "assistant", "content": "Hello! How can I help today?"},
+      {"role": "user", "content": "I want to learn Django"},
+      {"role": "assistant", "content": "Great choice. Start with the official tutorial."}
+    ]
+  }
+}

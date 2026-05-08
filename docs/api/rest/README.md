@@ -31,14 +31,18 @@ Get one from `POST /api/auth/login/`. Tokens expire after 15 minutes;
 use `POST /api/auth/refresh/` to mint a new access token from the
 refresh token. See the Swagger page for the full auth flow.
 
-## Why no Postman collection for REST
+## GUI client
 
-Swagger UI's *Try it out* mode already covers what a Postman REST
-collection would: an authenticated GUI client backed by a schema. The
-schema is generated from the code at runtime, so a hand-maintained
-Postman export would lag behind every endpoint change. We keep
-hand-maintained client artefacts only where there's no alternative —
-for the WebSocket side, see [`../ws/`](../ws/).
+For repeatable scenarios with auth tokens auto-injected (Login → AI →
+Logout), negative-case fixtures, or sharing a flow with someone else,
+use the [Bruno collection](../../../bruno/) at the repo root. It
+covers the same endpoints Swagger UI does, plus the WebSocket side in
+the same collection.
+
+Treat them as complementary — Swagger is the contract (regenerated
+from the code at request-time, never out of date), Bruno is the
+workflow (curated by hand, has the realistic request bodies and
+post-response scripts).
 
 ## Where the schema config lives
 

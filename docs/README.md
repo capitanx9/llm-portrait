@@ -15,8 +15,8 @@ For someone calling the project from the outside.
   rooms, portraits). Generated documentation is served at
   `/api/docs/` when the stack is up.
 - [api/ws/](api/ws/) — real-time WebSocket chat. AsyncAPI specification
-  + pre-rendered HTML viewer at `/ws/docs/`. Includes a Postman
-  collection for hands-on exploration.
+  + pre-rendered HTML viewer at `/ws/docs/`. Hands-on exploration via
+  the Bruno collection at [`../bruno/`](../bruno/).
 
 ## Debugging
 
@@ -28,7 +28,7 @@ For someone trying to figure out what the running stack is doing.
   tracing, access log.
 - [debug/http.md](debug/http.md) — Swagger UI as a debugger,
   `LOG_HTTP_BODY=1` body dumps.
-- [debug/ws.md](debug/ws.md) — `make ws-demo`, Postman, reading
+- [debug/ws.md](debug/ws.md) — `make ws-demo`, Bruno, reading
   `make logs-ws`.
 
 ## Deployment
