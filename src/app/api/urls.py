@@ -16,4 +16,5 @@ urlpatterns = [
     path("auth/logout/", auth.LogoutView.as_view(), name="auth-logout"),
     path("auth/me/", auth.MeView.as_view(), name="auth-me"),
     path("chat/", include("app.chat.urls")),
+    path("ai/", include("app.ai.urls")),
 ]
