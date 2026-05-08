@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.utils.decorators import method_decorator
 from django_ratelimit.decorators import ratelimit
-from drf_spectacular.utils import extend_schema, inline_serializer
+from drf_spectacular.utils import OpenApiExample, extend_schema, inline_serializer
 from loguru import logger
 from rest_framework import serializers, status
 from rest_framework.permissions import IsAuthenticated
@@ -34,6 +34,29 @@ class AIProcessView(APIView):
                 fields={"detail": serializers.CharField()},
             ),
         },
+        examples=[
+            OpenApiExample(
+                "Translate ru → en",
+                value={
+                    "action": "translate",
+                    "message": "Привет, как дела?",
+                    "target_language": "en",
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                "Summarize a short conversation",
+                value={
+                    "action": "summarize",
+                    "conversation": [
+                        {"role": "user", "content": "morning everyone"},
+                        {"role": "user", "content": "PR is up, take a look"},
+                        {"role": "user", "content": "rebased onto main, all green"},
+                    ],
+                },
+                request_only=True,
+            ),
+        ],
     )
     @method_decorator(
         ratelimit(key="user", rate=settings.LLM_RATE_LIMIT, method="POST", block=True)

@@ -245,6 +245,16 @@ SPECTACULAR_SETTINGS = {
     ),
     "VERSION": "0.1.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    # Make Swagger UI usable as a "Try it out" client without round-trip
+    # friction: keep the bearer token after page reloads, expand request
+    # forms by default, surface request duration, and provide a filter box
+    # for our growing endpoint list.
+    "SWAGGER_UI_SETTINGS": {
+        "persistAuthorization": True,
+        "tryItOutEnabled": True,
+        "displayRequestDuration": True,
+        "filter": True,
+    },
 }
 
 # ==============================================================================

@@ -2,10 +2,12 @@ import contextlib
 from typing import Any
 
 from django.shortcuts import get_object_or_404
-from drf_spectacular.utils import OpenApiParameter, extend_schema
+from drf_spectacular.utils import OpenApiExample, OpenApiParameter, extend_schema
 from rest_framework import generics, status
 from rest_framework.request import Request
 from rest_framework.response import Response
+
+from app.chat.management.commands.seed_rooms import DEMO_ROOMS
 
 from .models import Message, Room
 from .serializers import MessageSerializer, RoomSerializer
@@ -14,6 +16,15 @@ DEFAULT_HISTORY_LIMIT = 50
 MAX_HISTORY_LIMIT = 200
 
 
+@extend_schema(
+    examples=[
+        OpenApiExample(
+            "Create demo room",
+            value={"name": DEMO_ROOMS[0]},
+            request_only=True,
+        ),
+    ],
+)
 class RoomListCreateView(generics.ListCreateAPIView):
     queryset = Room.objects.all()
     serializer_class = RoomSerializer
