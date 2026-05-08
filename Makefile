@@ -1,22 +1,19 @@
 .DEFAULT_GOAL := help
 
 include makefiles/vars.mk
-include makefiles/poetry.mk
-include makefiles/lint.mk
-include makefiles/test.mk
-include makefiles/clean.mk
-include makefiles/docker.mk
-include makefiles/django.mk
-include makefiles/llm.mk
+include makefiles/help.mk
+include makefiles/docker/lifecycle.mk
+include makefiles/docker/logs.mk
+include makefiles/docker/image.mk
+include makefiles/docker/reset.mk
+include makefiles/django/db.mk
+include makefiles/django/users.mk
+include makefiles/data/seed.mk
+include makefiles/data/flush.mk
+include makefiles/quality/lint.mk
+include makefiles/quality/test.mk
+include makefiles/tooling/poetry.mk
+include makefiles/tooling/llm.mk
+include makefiles/tooling/asyncapi.mk
 include makefiles/ws-demo.mk
-include makefiles/asyncapi.mk
-
-.PHONY: help check
-
-help: ## Show this help message
-	@printf "Available commands:\n\n"
-	@awk 'BEGIN { FS = ":.*##" } \
-		/^[a-zA-Z_-]+:.*##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 }' \
-		$(MAKEFILE_LIST) | sort
-
-check: lint test ## Run lint and tests (use before pushing)
+include makefiles/clean.mk
