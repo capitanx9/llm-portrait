@@ -1,0 +1,553 @@
+openapi: 3.0.3
+info:
+  title: LLM Portrait API
+  version: 0.1.0
+  description: |-
+    REST API for the LLM Portrait project.
+
+    The real-time WebSocket chat side is documented separately as an [AsyncAPI specification](/ws/docs/) — same project, different transport.
+paths:
+  /api/ai/process/:
+    post:
+      operationId: ai_process_create
+      tags:
+      - ai
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProcessRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ProcessRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProcessRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcessResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIProcessError400'
+          description: ''
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIProcessError429'
+          description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIProcessError503'
+          description: ''
+  /api/auth/login/:
+    post:
+      operationId: auth_login_create
+      description: |-
+        Takes a set of user credentials and returns an access and refresh JSON web
+        token pair to prove the authentication of those credentials.
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPair'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPair'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPair'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenObtainPair'
+          description: ''
+  /api/auth/logout/:
+    post:
+      operationId: auth_logout_create
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Logout'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Logout'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Logout'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '205':
+          description: Refresh token blacklisted.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutError400'
+          description: ''
+  /api/auth/me/:
+    get:
+      operationId: auth_me_retrieve
+      tags:
+      - auth
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/auth/refresh/:
+    post:
+      operationId: auth_refresh_create
+      description: |-
+        Takes a refresh type JSON web token and returns an access type JSON web
+        token if the refresh token is valid.
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefresh'
+          description: ''
+  /api/auth/register/:
+    post:
+      operationId: auth_register_create
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Register'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Register'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Register'
+        required: true
+      security:
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Register'
+          description: ''
+  /api/chat/rooms/:
+    get:
+      operationId: chat_rooms_list
+      parameters:
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: offset
+        required: false
+        in: query
+        description: The initial index from which to return the results.
+        schema:
+          type: integer
+      tags:
+      - chat
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedRoomList'
+          description: ''
+    post:
+      operationId: chat_rooms_create
+      tags:
+      - chat
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Room'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Room'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Room'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+          description: ''
+  /api/chat/rooms/{name}/messages/:
+    get:
+      operationId: chat_rooms_messages_list
+      parameters:
+      - in: query
+        name: before
+        schema:
+          type: integer
+        description: Return only messages with id < before (cursor pagination).
+      - in: query
+        name: limit
+        schema:
+          type: integer
+        description: Page size, capped at 200. Default 50.
+      - in: path
+        name: name
+        schema:
+          type: string
+        required: true
+      - name: offset
+        required: false
+        in: query
+        description: The initial index from which to return the results.
+        schema:
+          type: integer
+      tags:
+      - chat
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMessageList'
+          description: ''
+  /api/health/:
+    get:
+      operationId: health_retrieve
+      tags:
+      - health
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+          description: ''
+components:
+  schemas:
+    AIProcessError400:
+      type: object
+      properties:
+        detail:
+          type: string
+      required:
+      - detail
+    AIProcessError429:
+      type: object
+      properties:
+        detail:
+          type: string
+      required:
+      - detail
+    AIProcessError503:
+      type: object
+      properties:
+        detail:
+          type: string
+      required:
+      - detail
+    ActionEnum:
+      enum:
+      - translate
+      - summarize
+      type: string
+      description: |-
+        * `translate` - translate
+        * `summarize` - summarize
+    ConversationTurn:
+      type: object
+      properties:
+        role:
+          type: string
+          maxLength: 32
+        content:
+          type: string
+          maxLength: 4000
+      required:
+      - content
+      - role
+    Health:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+      - status
+    Logout:
+      type: object
+      properties:
+        refresh:
+          type: string
+      required:
+      - refresh
+    LogoutError400:
+      type: object
+      properties:
+        detail:
+          type: string
+      required:
+      - detail
+    Message:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        sender:
+          type: string
+          readOnly: true
+        text:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - sender
+      - text
+    PaginatedMessageList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=400&limit=100
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=200&limit=100
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Message'
+    PaginatedRoomList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=400&limit=100
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=200&limit=100
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Room'
+    ProcessRequest:
+      type: object
+      properties:
+        action:
+          $ref: '#/components/schemas/ActionEnum'
+        message:
+          type: string
+          maxLength: 4000
+        target_language:
+          $ref: '#/components/schemas/TargetLanguageEnum'
+        conversation:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConversationTurn'
+          maxItems: 200
+          minItems: 1
+      required:
+      - action
+    ProcessResponse:
+      type: object
+      properties:
+        action:
+          $ref: '#/components/schemas/ActionEnum'
+        source_language:
+          type: string
+        translation:
+          type: string
+        summary:
+          type: string
+      required:
+      - action
+      - source_language
+    Register:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        username:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          writeOnly: true
+      required:
+      - email
+      - id
+      - password
+      - username
+    Room:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          pattern: ^[a-z0-9-]+$
+          maxLength: 64
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - name
+    TargetLanguageEnum:
+      enum:
+      - ru
+      - en
+      - uk
+      - fr
+      - es
+      - de
+      type: string
+      description: |-
+        * `ru` - ru
+        * `en` - en
+        * `uk` - uk
+        * `fr` - fr
+        * `es` - es
+        * `de` - de
+    TokenObtainPair:
+      type: object
+      properties:
+        username:
+          type: string
+          writeOnly: true
+        password:
+          type: string
+          writeOnly: true
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+          readOnly: true
+      required:
+      - access
+      - password
+      - refresh
+      - username
+    TokenRefresh:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+      required:
+      - access
+      - refresh
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        username:
+          type: string
+          readOnly: true
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+        email:
+          type: string
+          format: email
+          readOnly: true
+      required:
+      - email
+      - id
+      - username
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

@@ -15,9 +15,10 @@ services:
       - ./tests:/app/tests
       - ./manage.py:/app/manage.py
       - ./pyproject.toml:/app/pyproject.toml
-      # AsyncAPI HTML is baked into the image, but mount it through in dev
-      # so `make asyncapi-build` is visible at /ws/docs/ without a rebuild.
-      - ./schemas/asyncapi.html:/app/schemas/asyncapi.html:ro
+      # Schemas (AsyncAPI HTML for /ws/docs/, OpenAPI YAML written by
+      # `make openapi-build`) live on the host and are mounted in. The whole
+      # folder is bound rw so `make openapi-build` can write back to the host.
+      - ./schemas:/app/schemas
     ports:
       - "8000:8000"
       - "5678:5678"  # debugpy (only listens when DEBUGPY=1; harmless otherwise)

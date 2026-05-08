@@ -15,4 +15,5 @@ include makefiles/quality/test.mk
 include makefiles/tooling/poetry.mk
 include makefiles/tooling/llm.mk
 include makefiles/tooling/asyncapi.mk
+include makefiles/tooling/openapi.mk
 include makefiles/clean.mk
