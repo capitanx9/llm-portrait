@@ -206,6 +206,9 @@ CHANNEL_LAYERS = {
 OLLAMA_URL = config("OLLAMA_URL", default="http://ollama:11434")
 OLLAMA_MODEL = config("OLLAMA_MODEL", default="llama3.2:3b")
 LLM_RATE_LIMIT = config("LLM_RATE_LIMIT", default="2/m")
+# Lower than the portrait pipeline's 0.8 — detect/translate/summarize want
+# determinism, not creativity. Portrait stays creative inside app.ai.llm.
+AI_TASK_TEMPERATURE = config("AI_TASK_TEMPERATURE", default=0.2, cast=float)
 
 # ==============================================================================
 # DRF
@@ -221,6 +224,7 @@ REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.LimitOffsetPagination",
     "PAGE_SIZE": 50,
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "EXCEPTION_HANDLER": "app.api.exceptions.custom_exception_handler",
 }
 
 SIMPLE_JWT = {
