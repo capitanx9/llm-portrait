@@ -17,6 +17,24 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ProcessRequest'
+            examples:
+              TranslateRu→En:
+                value:
+                  action: translate
+                  message: Привет, как дела?
+                  target_language: en
+                summary: Translate ru → en
+              SummarizeAShortConversation:
+                value:
+                  action: summarize
+                  conversation:
+                  - role: user
+                    content: morning everyone
+                  - role: user
+                    content: PR is up, take a look
+                  - role: user
+                    content: rebased onto main, all green
+                summary: Summarize a short conversation
           application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/ProcessRequest'
@@ -54,9 +72,7 @@ paths:
   /api/auth/login/:
     post:
       operationId: auth_login_create
-      description: |-
-        Takes a set of user credentials and returns an access and refresh JSON web
-        token pair to prove the authentication of those credentials.
+      description: Subclassed only to attach a Swagger example. Behaviour unchanged.
       tags:
       - auth
       requestBody:
@@ -64,6 +80,12 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/TokenObtainPair'
+            examples:
+              LoginAsOleksa:
+                value:
+                  username: oleksa
+                  password: pass1234
+                summary: Login as oleksa
           application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/TokenObtainPair'
@@ -88,6 +110,10 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/Logout'
+            examples:
+              Logout:
+                value:
+                  refresh: <paste the refresh token from /api/auth/login/>
           application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/Logout'
@@ -157,6 +183,13 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/Register'
+            examples:
+              NewUser:
+                value:
+                  username: newcomer
+                  email: newcomer@example.com
+                  password: pass1234
+                summary: New user
           application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/Register'
@@ -209,6 +242,11 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/Room'
+            examples:
+              CreateDemoRoom:
+                value:
+                  name: general
+                summary: Create demo room
           application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/Room'
