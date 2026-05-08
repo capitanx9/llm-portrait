@@ -139,3 +139,39 @@ jobs:
         # locally — keep them in lock-step so a yaml that fails CI also
         # fails on the contributor's laptop, and vice versa.
         run: docker run --rm -v "$PWD/schemas:/work" asyncapi/cli validate /work/asyncapi.yaml
+
+  openapi:
+    name: OpenAPI schema (validate + drift check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: ".python-version"
+
+      - name: Install Poetry
+        run: pipx install poetry
+
+      - name: Cache Poetry virtualenv
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pypoetry
+          key: poetry-${{ runner.os }}-${{ hashFiles('poetry.lock') }}
+
+      - name: Install dependencies
+        run: poetry install --no-interaction
+
+      - name: Validate against OpenAPI 3 + check committed schema is fresh
+        # We run spectacular twice intentionally:
+        #   1. --validate fails the build if the generated schema doesn't
+        #      conform to OpenAPI 3 (broken annotations, missing serializers).
+        #   2. The diff catches the case where someone added/changed an
+        #      endpoint without running `make openapi-build` and committing
+        #      the regenerated schemas/openapi.yaml. The frontend pulls this
+        #      file straight from the repo, so a stale commit silently breaks
+        #      type generation downstream.
+        run: |
+          poetry run python manage.py spectacular --validate --file /tmp/openapi.yaml
+          diff -u schemas/openapi.yaml /tmp/openapi.yaml

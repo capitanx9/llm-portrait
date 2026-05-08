@@ -8,11 +8,14 @@ JSON over HTTP. Local: `http://localhost:8000/api/`. Production:
 - Format: OpenAPI 3
 - Source: Django views + serializers, annotated with
   [drf-spectacular](https://drf-spectacular.readthedocs.io/)
-- Viewer: Swagger UI at `/api/docs/`
-- Raw schema: `/api/schema/` (YAML)
+- Viewer: Swagger UI at `/api/docs/` (live, generated per request)
+- Raw schema (live): `/api/schema/`
+- Raw schema (file): [`schemas/openapi.yaml`](../../schemas/openapi.yaml)
+  — committed for the frontend's `openapi-typescript` codegen
 
-The schema is generated at request time, so it never drifts from the
-code.
+`make openapi-build` regenerates the file. CI fails the build if the
+committed file is out of sync with what the code produces, so the
+frontend never reads a stale schema.
 
 ## Authentication
 

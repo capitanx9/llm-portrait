@@ -2,6 +2,7 @@ import contextlib
 from typing import Any
 
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import generics, status
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -30,6 +31,28 @@ class RoomListCreateView(generics.ListCreateAPIView):
 class RoomMessagesView(generics.GenericAPIView):
     serializer_class = MessageSerializer
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="limit",
+                type=int,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description=(
+                    f"Page size, capped at {MAX_HISTORY_LIMIT}. "
+                    f"Default {DEFAULT_HISTORY_LIMIT}."
+                ),
+            ),
+            OpenApiParameter(
+                name="before",
+                type=int,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Return only messages with id < before (cursor pagination).",
+            ),
+        ],
+        responses={200: MessageSerializer(many=True)},
+    )
     def get(self, request: Request, name: str) -> Response:
         room = get_object_or_404(Room, name=name)
 
