@@ -180,14 +180,18 @@ The remote `aws ecr get-login-password` call works because the EC2 instance has 
 - name: Wait for app to settle
   run: sleep 15
 
-- name: Curl /health/
-  run: |
-    curl -fsS --max-time 30 https://${{ secrets.EC2_HOST_DOMAIN }}/health/ \
-      | tee /tmp/health.json
-    grep -q '"status":\s*"ok"' /tmp/health.json
+- name: Curl /health/        (legacy Lab 2 endpoint)   →  gunicorn, plain Django view
+- name: Curl /api/health/    (DRF endpoint)            →  gunicorn, DRF router
+- name: Curl /ws/docs/       (AsyncAPI viewer)         →  daphne, HTTP path
+- name: WebSocket handshake  (anon → 403)              →  daphne, WS upgrade path
 ```
 
-15-second sleep covers the gap between `docker compose up -d` returning and gunicorn actually accepting connections. Then a curl to the public HTTPS endpoint, asserting both the HTTP status and the JSON shape — so a 200 response with a wrong body still fails the deploy.
+15-second sleep covers the gap between `docker compose up -d` returning and gunicorn actually accepting connections. Then four checks exercise four independent code paths:
+
+- `/health/` is the Lab 2 plain-Django view. Proves gunicorn + nginx routing for `/` work.
+- `/api/health/` is the same shape but through DRF + drf-spectacular. Proves the API stack survived the deploy, not just the legacy view.
+- `/ws/docs/` is served by the **ws** container (daphne) over plain HTTP. Proves the ws service booted, nginx routes `/ws/*` to `ws:8001`, and the AsyncAPI HTML shipped with the image.
+- The handshake check opens a real `wss://` connection to `/ws/chat/smoke/` with no JWT. Our `ChatConsumer` rejects unauthenticated clients before `accept()`, which Channels surfaces as HTTP 403 on the upgrade. A 403 here proves nginx forwarded the `Upgrade`/`Connection` headers (otherwise daphne would 400 the request), daphne routed the URL to our consumer, and the auth gate denies anon access. The HTTP path above and the WS upgrade path here use **different** code in nginx and daphne, so we want both green.
 
 If the smoke-test fails, the deploy is **not** automatically rolled back. The previous container is already gone. The fix is to push another commit (or revert) and let CD re-run.
 
