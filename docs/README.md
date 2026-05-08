@@ -23,15 +23,9 @@ For someone calling the project from the outside.
 ## Debugging
 
 For someone trying to figure out what the running stack is doing.
-
-- [debug/breakpoints.md](debug/breakpoints.md) — VS Code attach mode
-  with debugpy.
-- [debug/logging.md](debug/logging.md) — loguru pipeline, request_id
-  tracing, access log.
-- [debug/http.md](debug/http.md) — Swagger UI as a debugger,
-  `LOG_HTTP_BODY=1` body dumps.
-- [debug/ws.md](debug/ws.md) — `make ws-demo`, Bruno, reading
-  `make logs-ws`.
+See [debug/](debug/) for the full layout — split into
+`architecture/` (how the dev tooling is wired) and `workflow/`
+(how to use it).
 
 ## Deployment
 

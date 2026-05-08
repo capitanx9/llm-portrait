@@ -33,8 +33,9 @@ request with four pre-saved messages (valid frame, empty text, long
 text, invalid JSON). The login script populates `{{access_token}}`
 automatically.
 
-For the two-user broadcast scenario, see
-[`make ws-demo`](../debug/ws.md).
+For broadcast, open Bruno in two windows logged in as different
+demo users (e.g. `oleksa` and `mariia` from `make seed-users`). For
+debug workflow see [`../debug/workflow/ws.md`](../debug/workflow/ws.md).
 
 ## Channels
 
