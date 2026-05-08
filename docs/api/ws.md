@@ -35,7 +35,7 @@ automatically.
 
 For broadcast, open Bruno in two windows logged in as different
 demo users (e.g. `oleksa` and `mariia` from `make seed-users`). For
-debug workflow see [`../debug/workflow/ws.md`](../debug/workflow/ws.md).
+debug workflow see [`../debug/workflow/3-trace-ws.md`](../debug/workflow/3-trace-ws.md).
 
 ## Channels
 

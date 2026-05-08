@@ -1,50 +1,51 @@
 # Debugging
 
-Debugging always pairs two sides:
+Three independent surfaces. Any debugging session combines a subset
+of them.
 
-- **Client-side** — where the request comes from. Tools live under
-  [`../api/`](../api/) (Bruno, Swagger UI, curl).
-- **Server-side** — what the backend does with the request. Tools
-  live here.
-
-The thread that connects them is `X-Request-ID` / `request_id` —
-returned in every HTTP response, bound on every WS handshake, and
-present on every server log line within the same scope.
-
-## Tools
-
-| Tool | Side | Purpose |
+| Surface | What it gives you | Entry point |
 |---|---|---|
-| Bruno, Swagger UI, curl | client | Issue REST and WS requests |
-| `make logs-*` | server | Tail per-service logs |
-| loguru `request_id` | both | One id ties client request to server log lines |
-| debugpy | server | Step through Python in VS Code |
-| `LOG_HTTP_BODY=1` | server | Dump request/response bodies on the access log |
+| **Observation** (logs) | What happened on the server | `make logs-<service>` |
+| **Pause** (debugpy) | Stop inside Python, inspect state | `make up-debug` + VS Code attach |
+| **Trigger** (clients) | Hit the server from outside | Bruno, Swagger UI, curl |
 
-## How it works (architecture)
+The thread that ties them together is **`request_id`** — a 12-char
+hex bound by middleware on every HTTP request and every WS
+connection. Every server log line within that scope carries it. Grep
+one id and you get the full lifecycle.
 
-- [`architecture/loguru.md`](architecture/loguru.md) — log sink,
-  request_id propagation, body dump, redaction, formats
-- [`architecture/debugpy.md`](architecture/debugpy.md) — attach mode
-  wiring, env vars, autoreload caveat
+## How to read request_id
 
-## How to use it (workflow)
-
-- [`workflow/logs.md`](workflow/logs.md) — read logs, grep by
-  request_id, body dump, severity filters
-- [`workflow/breakpoints.md`](workflow/breakpoints.md) — set
-  breakpoints in VS Code, attach mode
-- [`workflow/http.md`](workflow/http.md) — Swagger as a debug client,
-  inspect bodies
-- [`workflow/ws.md`](workflow/ws.md) — Bruno + `make logs-ws`,
-  broadcast scenarios
-
-## Quick recipes
-
-| You want to… | Recipe |
+| Protocol | Where to find it |
 |---|---|
-| Trace one request end-to-end | Copy `X-Request-ID` from the response → `make logs-web \| grep <id>` |
-| See the raw request body | `LOG_HTTP_BODY=1 make up` → trigger → `make logs-web` |
-| Pause inside a view | `make up-debug` → set breakpoint → attach VS Code → trigger |
-| Watch live WS traffic | `make logs-ws` in one terminal, Bruno WS request in another |
-| Debug failing requests only | `make logs-web \| grep WARNING` (4xx) or `\| grep ERROR` (5xx) |
+| HTTP | `X-Request-ID` header on the response (visible in Bruno / Swagger / curl) |
+| WS | `request_id=…` field on the `connect` log line in `make logs-ws` |
+
+WS clients don't expose upgrade-response headers, so the id is
+read from the server side instead. Once you have it, the workflow
+is identical to HTTP.
+
+## Configuration
+
+| Env var | Default | Effect |
+|---|---|---|
+| `LOG_LEVEL` | `INFO` | `DEBUG` adds SQL queries and framework noise |
+| `LOG_FORMAT` | `human` | `json` for log shippers (top-level keys per bound field) |
+| `LOG_HTTP_BODY` | unset | `1` dumps request/response headers and JSON bodies on the access log. Bundled into `make up-debug`. |
+| `DEBUGPY` | unset | `1` opens `:5678` for VS Code attach. Set by `make up-debug`. |
+| `DEBUGPY_WAIT` | unset | `1` blocks boot until VS Code attaches. Set by `make up-debug-wait`. |
+
+## Workflow
+
+Read in order — each scenario builds on the previous one.
+
+- [`workflow/0-setup.md`](workflow/0-setup.md) — Bring up the stack
+  with demo data and the Bruno collection
+- [`workflow/1-breakpoint.md`](workflow/1-breakpoint.md) — Stop
+  inside a view with debugpy
+- [`workflow/2-trace-http.md`](workflow/2-trace-http.md) — Find an
+  HTTP failure by `request_id` in the logs
+- [`workflow/3-trace-ws.md`](workflow/3-trace-ws.md) — Same workflow
+  for WebSocket, with the one asymmetry called out
+- [`workflow/4-services.md`](workflow/4-services.md) — Symptom →
+  which `logs-<service>` to read (celery, db, redis, mailhog, ollama)
