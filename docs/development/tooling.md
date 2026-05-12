@@ -28,7 +28,7 @@ poetry lock
 
 Dependency manager. Two groups:
 
-- **`[project] dependencies`** — runtime deps (Django, allauth, Celery, LangChain, …). These end up in the production image.
+- **`[project] dependencies`** — runtime deps (Django, DRF, simplejwt, Channels + daphne, Celery, LangGraph + LangChain, …). These end up in the production image.
 - **`[tool.poetry.group.dev.dependencies]`** — dev-only deps (ruff, mypy, pytest, factory-boy, pre-commit). Excluded from the prod image (`poetry install --without dev` in the builder stage of `docker/Dockerfile`).
 
 Common commands:
@@ -104,7 +104,7 @@ Static type checking. Strict-ish: `strict = false`, but `warn_unused_ignores` an
 Notable settings:
 
 - **`mypy_path = "src"`** — needed because we use a `src/` layout (`src/app/...`).
-- **`ignore_missing_imports = true`** — third-party packages without stubs (langchain, allauth, langchain-ollama, django-ratelimit, …) just become `Any`. Without this flag mypy would scream on every import.
+- **`ignore_missing_imports = true`** — third-party packages without stubs (langgraph, langchain, langchain-ollama, django-ratelimit, channels, …) just become `Any`. Without this flag mypy would scream on every import.
 - **`plugins = ["mypy_django_plugin.main"]`** — django-stubs plugin. It teaches mypy about `Manager.objects.filter(...)`, `User.objects.get(...)`, etc.
 - **`django_settings_module = "app.config.settings.dev"`** under `[tool.django-stubs]` — the plugin loads this module to learn the project's models.
 - **`exclude = ["migrations", ".venv"]`** — generated migration files have all sorts of mypy-unfriendly patterns.

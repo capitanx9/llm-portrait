@@ -76,7 +76,7 @@ services:
 
 GitHub waits for the healthchecks to go green before kicking off the steps. Once green, `pytest` runs against a fresh database every time.
 
-Notably absent: **Ollama**. LLM tests mock it (`patch("app.users.views.generate_portrait", ...)`), so CI doesn't need a 2GB model image.
+Notably absent: **Ollama**. LangGraph node tests mock the LLM factory (`patch.object(app.ai.nodes, "_make_llm", ...)`) and end-to-end view tests mock the whole graph (`patch("app.ai.views.run_graph", ...)`), so CI doesn't need a 2GB model image.
 
 ### Caching
 
@@ -172,7 +172,7 @@ The OIDC dance happens in `aws-actions/configure-aws-credentials`: GitHub gives 
 
 The remote `aws ecr get-login-password` call works because the EC2 instance has the `llm-portrait-ec2` instance profile attached — read-only ECR access without explicit creds.
 
-`docker compose pull` fetches the freshly-built `:latest` for `web` and `celery`. `up -d` recreates only the containers whose underlying image actually changed. `image prune` cleans up the previous image to keep the EBS disk from filling up.
+`docker compose pull` fetches the freshly-built `:latest`, which `web`, `ws`, and `celery` all share. `up -d --force-recreate` brings every long-running service onto the new image (or the new bind-mounted config — see [`deployment/ec2.md`](../deployment/ec2.md) §11 for why `--force-recreate` is the right hammer here). `image prune` cleans up the previous image to keep the EBS disk from filling up.
 
 #### 3. `smoke-test`
 
@@ -206,7 +206,7 @@ If the smoke-test fails, the deploy is **not** automatically rolled back. The pr
 | `EC2_HOST`           | Elastic IP, e.g. `63.183.30.218`.                              |
 | `EC2_HOST_DOMAIN`    | `llm-portrait.gotdns.ch` (used by the smoke test).             |
 | `EC2_USER`           | `ubuntu`.                                                      |
-| `EC2_SSH_KEY`        | Private SSH key for the runner. Separate keypair from `strongbox` (the human-use one) — generated specifically for CI with no passphrase. |
+| `EC2_SSH_KEY`        | Private SSH key for the runner. A separate keypair from the human-use one, generated specifically for CI with no passphrase. |
 
 Why a CI-specific SSH key: `appleboy/ssh-action` can't unlock a passphrase-protected key, so the developer's day-to-day key (with passphrase) doesn't work for CD. A second public key is appended to `~/.ssh/authorized_keys` on EC2; the matching private key sits in `EC2_SSH_KEY`. If the CI key is compromised, you remove that line from `authorized_keys`.
 

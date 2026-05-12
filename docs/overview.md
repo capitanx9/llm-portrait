@@ -1,43 +1,44 @@
 # Overview
 
-## Goal
+## What it is
 
-`llm-portrait` is the second of three internship practicals. The brief asks for a Django application that:
+`llm-portrait` is a self-contained backend that serves a small social product: users sign up, join named chat rooms, exchange messages in real time, and offload language-related work — translation, conversation summarization — to a local LLM. Everything is JSON in, JSON out; a separate frontend repo consumes this API.
 
-1. Defines `User`, `UserProfile`, and `UserFriends` models with non-trivial profile fields and exposes them in the admin.
-2. Implements signin / signup via three different paths: classic basic auth (username + email + password) with a welcome email, GitHub OAuth, and password reset over email.
-3. Generates an AI description for a user's profile via a local LLM, with a per-user rate limit.
-4. Ships everything as a `docker-compose` deployable bundle.
+The backend has two channels with the client:
 
-The project's flavour is tarot: instead of plain "interests" / "bio" fields, the profile is structured around tarot archetypes — major arcana, element, shadow, quest, curse, totem, forbidden magic. Friends contribute their own arcanas to the prompt, so the generated portrait reads each user inside their social context.
+- **HTTPS (REST)** for everything stateless: authentication, room and message CRUD, AI requests.
+- **WSS (WebSocket)** for the chat feed: a client joins one room at a time and receives every message published to it for as long as the connection lives.
 
-## What users can do
+The AI side is intentionally a pipeline, not a single prompt. An incoming request first goes through a language-detection node, then routes to either a translation node or a summarization node, with a shared fallback path for any LLM error. Adding a new action means adding a node, not patching a view.
 
-- **Sign up** with username, email, and password — or sign in with **GitHub OAuth**.
-- **Reset their password** via email (delivered through Celery → Mailhog in dev / SMTP in prod).
-- **Edit their tarot profile** at `/portrait/`: arcana (22 majors, Russian labels), element (fire / water / air / earth), and free-text fields for shadow, quest, curse, totem, forbidden magic, plus `age` and `location`.
-- **Manage friends** from the same page: a list of all other users with one-click "Add" / "In friends" toggle. Friendships are symmetric (a `post_save` signal mirrors the row), so adding back is automatic.
-- **Generate an AI portrait** by clicking the button at the bottom of the profile. The LLM reads all the user's tarot fields plus the arcanas of their friends, and writes a 100–150 word psychological description. Generation is rate-limited to 2 requests per minute per user (configurable).
+## What the API exposes
 
-The Russian-speaking UI is intentional: the tarot vocabulary (Маг, Жрица, Колесница, Огонь, …) is more idiomatic in Russian, and the LLM is prompted in Russian as well.
+- **Auth (`/api/auth/*`)** — register, log in, refresh, log out, current user. JWT pair on login; the refresh token can be blacklisted on logout so it can't be reused.
+- **Chat REST (`/api/chat/*`)** — list and create rooms, read paginated message history.
+- **Chat WebSocket (`/ws/chat/<room>/`)** — real-time send/receive. JWT is passed as a query-string parameter at handshake; unauthenticated upgrades are rejected.
+- **AI processing (`/api/ai/process/`)** — one endpoint, two actions (`translate`, `summarize`). The action chooses the path through the LangGraph; the response shape depends on the action.
+- **Health & docs** — `/api/health/`, `/health/` for liveness; `/api/docs/` for the live Swagger UI, `/ws/docs/` for the AsyncAPI viewer.
+
+Five demo users (`oleksa`, `mariia`, `bohdan`, `kateryna`, `taras`) and three demo rooms (`general`, `random`, `ai-help`) are created by `make seed-all`. The same credentials are pre-wired in the Bruno collection and in the Swagger UI examples, so the first authenticated call after a fresh clone is a single click away.
 
 ## Stack at a glance
 
-- **Backend:** Django 5.2, Python 3.12.
-- **Auth:** [django-allauth](https://docs.allauth.org) for both password-based auth and GitHub OAuth.
-- **Async / email:** Celery 5 with Redis broker; Mailhog as an SMTP sink in dev; the same SMTP target on prod (intentionally simple — switching to SES/Postmark is one env change).
-- **LLM:** [Ollama](https://ollama.ai) running [Llama3.2:3b](https://ollama.ai/library/llama3.2) locally; [LangChain](https://python.langchain.com) for prompt templating.
-- **Database:** PostgreSQL 16.
-- **Cache / rate limit:** Redis 7 via [django-redis](https://github.com/jazzband/django-redis); [django-ratelimit](https://django-ratelimit.readthedocs.io) for the LLM endpoint.
-- **Frontend:** server-rendered Django templates, Bootstrap 5 + Bootstrap Icons via CDN. A small inline JS handles the password show/hide toggle and the loading spinner on the LLM button.
-- **Containers:** Docker Compose. Two compose files: `docker-compose.dev.yml` for development and `docker-compose.prod.yml` for the EC2 deploy.
-- **TLS / domain:** Let's Encrypt via certbot, NoIP DDNS domain `llm-portrait.gotdns.ch` pointing at an AWS Elastic IP.
-- **Hosting:** AWS EC2 (`t3a.large`, Ubuntu 24.04) in `eu-central-1`. Container images are stored in AWS ECR.
-- **CI/CD:** GitHub Actions. CI runs ruff, mypy, and pytest. CD authenticates to AWS via OIDC, builds the image, pushes to ECR, SSHs into EC2, and rolls the stack.
+- **Language & web framework** — Python 3.12, Django 5.2, Django REST Framework, drf-spectacular for OpenAPI.
+- **Authentication** — `djangorestframework-simplejwt` with token blacklist; 15-min access, 7-day refresh, rotation enabled.
+- **Realtime** — Channels + daphne running on a separate `ws` service; Redis as the channel layer for cross-process broadcast.
+- **AI pipeline** — LangGraph (detect → translate | summarize → fallback) on top of LangChain; local Ollama serving Llama3.2:3b.
+- **Async work** — Celery 5 with Redis broker; Mailhog as the SMTP sink in dev and prod.
+- **Data** — PostgreSQL 16, Redis 7 (cache + rate-limit storage + Celery broker + Channels layer).
+- **API clients** — Swagger UI at `/api/docs/`, AsyncAPI viewer at `/ws/docs/`, a [Bruno](https://www.usebruno.com/) collection at `bruno/llm-portrait/` covering every endpoint.
+- **Containers & runtime** — Docker Compose (`docker-compose.dev.yml`, `docker-compose.prod.yml`), nginx terminating TLS in front of gunicorn (`/`) and daphne (`/ws/`).
+- **TLS & domain** — Let's Encrypt via certbot, NoIP DDNS `llm-portrait.gotdns.ch` pointing at an AWS Elastic IP.
+- **Hosting** — AWS EC2 (`t3a.large`, Ubuntu 24.04) in `eu-central-1`. Container images in AWS ECR, pushed by CD.
+- **CI/CD** — GitHub Actions. CI: ruff, mypy, pytest, AsyncAPI + OpenAPI schema validation. CD: OIDC to AWS → build → push to ECR → SSH into EC2 → recreate stack → four-path smoke test (REST, DRF, ws HTTP, ws upgrade).
 
 ## Where to read next
 
-- New to the project? Start with [architecture](./architecture.md) for the high-level diagram.
-- Want to run it on your machine? See [local deployment](./deployment/local.md).
-- Want to reproduce the production setup? See [EC2 deployment](./deployment/ec2.md).
-- Curious about how the project is built and shipped? See the [development](./development/workflow.md) section.
+- New to the project? Start with [architecture](./architecture.md) for the service diagram and data flows.
+- Want to call the API? See [REST](./api/rest.md) for HTTP endpoints, [WebSocket](./api/ws.md) for the realtime side.
+- Want to run it locally? See [local deployment](./deployment/local.md).
+- Want to reproduce production? See [EC2 deployment](./deployment/ec2.md).
+- Want to debug something? Start with the [debug tour](./debug/README.md).

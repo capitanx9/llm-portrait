@@ -1,6 +1,6 @@
 # AWS EC2 deployment
 
-This page documents how the production environment was set up on AWS, in enough detail to reproduce it from scratch. Once it's set up, day-to-day work happens via the CD pipeline (see [`development/ci-cd.md`](../development/ci-cd.md)) — this page covers the one-time bootstrap.
+This page describes the AWS environment that the production deploy lives in: what already exists, where to find it, and which dials matter when something goes wrong. Day-to-day deploys happen via the CD pipeline (see [`development/ci-cd.md`](../development/ci-cd.md)); this page is for operators inheriting the box.
 
 ## What you end up with
 
@@ -20,10 +20,10 @@ The cost target is ~$30/month for `t3a.large` + EBS + Elastic IP. Stop the insta
 
 ## 2. EC2 instance
 
-- **Type:** `t3a.large` (2 vCPU, 8 GB RAM). Llama3.2:3b sits at ~3 GB resident; the rest of the stack (Postgres, Redis, web, celery, mailhog, nginx, certbot) fits comfortably. A `t3a.medium` (4 GB) would OOM under the model.
+- **Type:** `t3a.large` (2 vCPU, 8 GB RAM). Llama3.2:3b sits at ~3 GB resident; the rest of the stack (Postgres, Redis, web, ws, celery, mailhog, nginx, certbot) fits comfortably. A `t3a.medium` (4 GB) would OOM under the model.
 - **AMI:** Ubuntu Server 24.04 LTS, `x86_64`. Don't pick `arm64` — Mailhog publishes only `linux/amd64` images and will run under emulation otherwise.
 - **Storage:** 30 GB `gp3` root volume. The Llama model alone is ~2 GB, plus the Postgres data, plus Docker images. 8 GB default is too small.
-- **Key pair:** create a new ED25519 keypair, name it `strongbox`. Save the private key into a password manager (this project uses [Strongbox](https://strongboxsafe.com)). Upload the public key when launching the instance.
+- **Key pair:** ED25519. The private key is stored in a password manager; the public key is registered on the instance. Anyone inheriting the box also inherits the key from the same manager.
 - **Elastic IP:** allocate one, attach to the instance. The public IPv4 of an EC2 changes on stop/start otherwise — and the DDNS A record points at this IP.
 
 ## 3. Security group
@@ -40,58 +40,35 @@ No outbound rules to lock down — instance pulls images from ECR and the Llama 
 
 ## 4. ECR repository
 
-In the `eu-central-1` region:
+A private repository named `llm-portrait` in the `eu-central-1` region holds the application image. The CD pipeline pushes two tags on every successful build: `:latest` (what the EC2 box pulls) and `:<git-sha>` (immutable, lets you roll back to a specific commit via `docker pull <registry>/llm-portrait:<sha>`).
 
-```
-Repositories → Create repository → "llm-portrait", private, mutable tags
-```
+Settings worth knowing if you need to touch it:
 
-The image will be pushed by the CD pipeline as both `:latest` and `:<git-sha>`.
+- **Visibility** — private. The EC2 instance authenticates via its IAM role (§5), GitHub Actions via OIDC (§5).
+- **Tag mutability** — mutable. `:latest` gets overwritten by every deploy.
+- **Lifecycle policy** — none. Old `:<git-sha>` tags accumulate; clean them up by hand if storage cost matters.
 
 ## 5. IAM roles
 
-### `llm-portrait-github-actions` (OIDC for the CD pipeline)
+Two roles do the auth work, both already provisioned. No long-lived AWS access keys exist anywhere — neither role uses them.
 
-GitHub Actions authenticates to AWS via [OIDC federation](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_create_oidc.html). No long-lived `AWS_ACCESS_KEY_ID` is stored anywhere.
+### `llm-portrait-github-actions` (CD pipeline → AWS)
 
-Steps:
+Used by GitHub Actions to push images to ECR. Trust policy federates on the [GitHub OIDC provider](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_create_oidc.html) and restricts assumption to workflows from this specific repo via a `StringLike` on `token.actions.githubusercontent.com:sub` (`repo:capitanx9/llm-portrait:*`).
 
-1. **Create an OIDC identity provider** in IAM:
-   - Provider URL: `https://token.actions.githubusercontent.com`.
-   - Audience: `sts.amazonaws.com`.
-2. **Create the role** `llm-portrait-github-actions`. Trust policy:
+- Permissions: `AmazonEC2ContainerRegistryPowerUser` (scoped to the `llm-portrait` repo).
+- Role ARN goes into the `AWS_ROLE_TO_ASSUME` GitHub secret — see [`development/ci-cd.md`](../development/ci-cd.md).
 
-   ```json
-   {
-     "Version": "2012-10-17",
-     "Statement": [
-       {
-         "Effect": "Allow",
-         "Principal": { "Federated": "arn:aws:iam::<account-id>:oidc-provider/token.actions.githubusercontent.com" },
-         "Action": "sts:AssumeRoleWithWebIdentity",
-         "Condition": {
-           "StringEquals": { "token.actions.githubusercontent.com:aud": "sts.amazonaws.com" },
-           "StringLike":   { "token.actions.githubusercontent.com:sub": "repo:capitanx9/llm-portrait:*" }
-         }
-       }
-     ]
-   }
-   ```
+To inspect: AWS Console → IAM → Roles → `llm-portrait-github-actions`. The trust policy and attached policies tabs are the two places anything ever needs changing.
 
-   The `StringLike` on `sub` is what restricts who can assume the role — only workflows from the `capitanx9/llm-portrait` repo.
-3. **Attach permissions** — at minimum:
-   - `AmazonEC2ContainerRegistryPowerUser` (or a custom policy with `ecr:GetAuthorizationToken`, `ecr:Batch*`, `ecr:PutImage`, `ecr:UploadLayerPart`, `ecr:InitiateLayerUpload`, `ecr:CompleteLayerUpload` on the `llm-portrait` repo).
-4. **Note the role ARN** — goes into the `AWS_ROLE_TO_ASSUME` GitHub secret (see [`development/ci-cd.md`](../development/ci-cd.md)).
+### `llm-portrait-ec2` (instance profile → ECR)
 
-### `llm-portrait-ec2` (instance profile)
+Attached to the EC2 instance as its instance profile. Lets the box do `aws ecr get-login-password ...` during a deploy without storing credentials.
 
-The EC2 instance pulls the latest image from ECR on every deploy. Using an instance profile avoids putting AWS keys on the box.
+- Trust policy: `ec2.amazonaws.com`.
+- Permissions: `AmazonEC2ContainerRegistryReadOnly`.
 
-1. Create role `llm-portrait-ec2`, trust policy with `ec2.amazonaws.com` as the principal.
-2. Attach `AmazonEC2ContainerRegistryReadOnly`.
-3. Attach the role as the **instance profile** of the EC2 instance.
-
-After this is in place, the AWS CLI on the box (or the CD pipeline running over SSH) can do `aws ecr get-login-password --region eu-central-1 | docker login ...` without any explicit credentials.
+To inspect: AWS Console → EC2 → instance → Security → IAM role.
 
 ## 6. Domain (NoIP)
 
@@ -135,18 +112,16 @@ sudo chown -R ubuntu:ubuntu /opt/llm-portrait
 cd /opt/llm-portrait
 ```
 
-### Copy infra files from the repo
+### Copy infra files (bootstrap only)
 
-The CD pipeline only updates the Docker image. The compose file, the nginx config, and `.env` live on the box and are managed manually.
-
-From your laptop (in the project root):
+The CD pipeline now `scp`s `docker-compose.prod.yml` and `docker/nginx.conf` to `/opt/llm-portrait/` on every deploy, but for the very first deploy these files need to be on the box already. From your laptop in the project root:
 
 ```bash
 scp docker-compose.prod.yml ec2-llm-portrait:/opt/llm-portrait/
 scp docker/nginx.conf       ec2-llm-portrait:/opt/llm-portrait/docker/
 ```
 
-(`ec2-llm-portrait` is the host alias in your local `~/.ssh/config`.)
+(`ec2-llm-portrait` is the host alias in your local `~/.ssh/config`.) After the first successful CD run, the pipeline keeps these files in sync; you only ever edit them in the repo.
 
 ### Create `.env` on the box
 
@@ -167,27 +142,35 @@ DB_NAME=llm_portrait
 DB_USER=app
 DB_PASSWORD=<strong-password>
 
-REDIS_URL=redis://redis:6379/0
 CELERY_BROKER_URL=redis://redis:6379/0
 REDIS_CACHE_URL=redis://redis:6379/1
+REDIS_CHANNELS_URL=redis://redis:6379/2
 
 OLLAMA_URL=http://ollama:11434
 OLLAMA_MODEL=llama3.2:3b
 LLM_RATE_LIMIT=2/m
+AI_TASK_TEMPERATURE=0.2
 
 EMAIL_HOST=mailhog
 EMAIL_PORT=1025
 EMAIL_USE_TLS=False
 DEFAULT_FROM_EMAIL=noreply@llm-portrait.gotdns.ch
 
-GITHUB_OAUTH_CLIENT_ID=<from the prod OAuth App>
-GITHUB_OAUTH_CLIENT_SECRET=<from the prod OAuth App>
+# JSON logs in prod so log shippers (CloudWatch / Loki) parse them
+# without a custom regex. Switch to "human" if you want to read raw
+# `docker logs` on the box.
+LOG_FORMAT=json
+LOG_LEVEL=INFO
+
+# Empty until the frontend is deployed at a separate origin. Comma-
+# separated list once it is, e.g. https://app.llm-portrait.gotdns.ch
+CORS_ALLOWED_ORIGINS=
 
 ECR_REGISTRY=<account-id>.dkr.ecr.eu-central-1.amazonaws.com
 ECR_REPOSITORY=llm-portrait
 ```
 
-Back the file up to a password manager (this project keeps it in Strongbox under `llm-portrait-prod-env`). Never commit it.
+Back the file up to a password manager — secrets aren't in git for good reason. Never commit it.
 
 ## 8. First HTTPS certificate
 
@@ -253,14 +236,25 @@ docker compose -f docker-compose.prod.yml exec web python manage.py createsuperu
 docker compose -f docker-compose.prod.yml exec ollama ollama pull llama3.2:3b
 ```
 
-Smoke-test:
+Smoke-test the public domain with three independent paths — REST through gunicorn, REST through DRF, and the WebSocket service's HTTP side through daphne. Together they prove every public surface is alive after the deploy.
 
 ```bash
+# REST via gunicorn (legacy Lab 2 endpoint, still served)
 curl -fsS https://llm-portrait.gotdns.ch/health/
 # {"status":"ok"}
+
+# REST via DRF (the API surface)
+curl -fsS https://llm-portrait.gotdns.ch/api/health/
+# {"status":"ok"}
+
+# WebSocket service, HTTP path (the AsyncAPI viewer is served by daphne)
+curl -fsS -o /dev/null -w "%{http_code}\n" https://llm-portrait.gotdns.ch/ws/docs/
+# 200
 ```
 
-Now go to <https://llm-portrait.gotdns.ch/>, sign up, fill the profile, and click "Сгенерировать портрет". Generation takes 1–3 minutes on `t3a.large` (this is bare CPU inference; see [`overview.md`](../overview.md) for why).
+The same three checks plus a fourth — an anonymous WebSocket upgrade to `/ws/chat/smoke/` expecting HTTP 403 — run as a CD smoke-test on every deploy. The fourth check covers the WebSocket upgrade path itself (different code in nginx and daphne than the HTTP-only viewer), so REST, DRF, ws-HTTP, and ws-upgrade are all green or the deploy is marked red. See [`development/ci-cd.md`](../development/ci-cd.md).
+
+For a richer manual smoke-test, point the Bruno collection at the `prod` environment, log in as a demo user (created via `make seed-users` inside the `web` container), and exercise REST + WS + AI. Cold Ollama loads the model on the first request after idle (30–60s); subsequent requests are 1–10s.
 
 ## 10. Auto-restart after reboot
 
@@ -299,46 +293,19 @@ sudo systemctl enable llm-portrait.service
 
 This is optional — `restart: unless-stopped` already covers reboots.
 
-## 11. Manual deploys (compose / nginx changes)
+## 11. Deploys
 
-The CD pipeline updates the Docker image and runs `docker compose pull && up -d`. Anything outside the image — `docker-compose.prod.yml`, `docker/nginx.conf`, `.env` — needs to be pushed manually:
+Day-to-day deploys are fully automated by the [CD pipeline](../development/ci-cd.md). On every push to `main` that passes CI:
 
-```bash
-# from the project root on your laptop
-scp docker-compose.prod.yml ec2-llm-portrait:/opt/llm-portrait/
-scp docker/nginx.conf       ec2-llm-portrait:/opt/llm-portrait/docker/
-```
+1. The pipeline builds the image, pushes `:latest` and `:<git-sha>` to ECR.
+2. It `scp`s the current `docker-compose.prod.yml` and `docker/nginx.conf` from the repo to `/opt/llm-portrait/` on the box (the repo is the source of truth).
+3. It SSHs in, runs `docker compose -f docker-compose.prod.yml pull && up -d --force-recreate`, and prunes the previous image.
+4. It runs the four-path smoke-test against the public domain (`/health/`, `/api/health/`, `/ws/docs/`, plus an anonymous WS handshake).
 
-Then on the box:
+Manual intervention is only needed for things outside the repo:
 
-```bash
-cd /opt/llm-portrait
-docker compose -f docker-compose.prod.yml up -d --force-recreate web nginx
-```
+- **`.env` changes** — `.env` lives on the box (it has secrets that aren't in git). Edit it in place, then `docker compose -f docker-compose.prod.yml up -d --force-recreate web ws celery` so all containers boot from the new env.
+- **Bootstrap-time work** — first cert (§8), first model pull (§9), first superuser. Once.
+- **Disaster recovery** — see §10 / `restart: unless-stopped`. After a reboot everything comes back on its own.
 
-`--force-recreate` is required because compose only re-creates containers when it detects a change in the **image** or in the **compose file as parsed at run time**. Editing `nginx.conf` (a bind-mounted file) doesn't trigger that; without `--force-recreate`, nginx would keep reading the old config until the next image bump.
-
-## 12. Two GitHub OAuth Apps (dev + prod)
-
-GitHub OAuth apps have one callback URL per app. To make the GitHub button work both locally and on prod, register two OAuth apps under your GitHub account ([Settings → Developer settings → OAuth Apps](https://github.com/settings/developers)):
-
-| App name              | Homepage URL                          | Callback URL                                                       |
-|-----------------------|---------------------------------------|--------------------------------------------------------------------|
-| `llm-portrait dev`    | `http://localhost:8000`               | `http://localhost:8000/accounts/github/login/callback/`            |
-| `llm-portrait prod`   | `https://llm-portrait.gotdns.ch`      | `https://llm-portrait.gotdns.ch/accounts/github/login/callback/`   |
-
-Put the dev creds into `.env` on your laptop, the prod creds into `.env` on the box.
-
-After putting prod creds on the box, recreate web:
-
-```bash
-docker compose -f docker-compose.prod.yml up -d --force-recreate web
-```
-
-(`docker compose restart web` is **not enough** — it restarts the existing container with the env it was created with.)
-
-## Known gaps
-
-- **Compose / nginx files are not in CD.** They live on the box and are pushed manually with `scp`. Automating this is straightforward (an `scp` step in the CD workflow) but hasn't been wired up — see the "Known gap" section in [`development/ci-cd.md`](../development/ci-cd.md).
-- **Mailhog on prod is a demo shortcut.** Real outbound mail would need an SMTP service (SES / Postmark / SendGrid). The code path is the same — just point `EMAIL_HOST` at the new server.
-- **No automated DB backups.** For a graded internship project this is fine, but it's the obvious next thing if the project goes anywhere.
+`--force-recreate` matters here: editing a bind-mounted file (or env-file) doesn't trigger a recreate on its own; the container would keep its original config until something else changes.
