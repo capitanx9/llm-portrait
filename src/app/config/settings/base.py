@@ -206,8 +206,7 @@ CHANNEL_LAYERS = {
 OLLAMA_URL = config("OLLAMA_URL", default="http://ollama:11434")
 OLLAMA_MODEL = config("OLLAMA_MODEL", default="llama3.2:3b")
 LLM_RATE_LIMIT = config("LLM_RATE_LIMIT", default="2/m")
-# Lower than the portrait pipeline's 0.8 — detect/translate/summarize want
-# determinism, not creativity. Portrait stays creative inside app.ai.llm.
+# Detect/translate/summarize nodes want determinism, not creativity.
 AI_TASK_TEMPERATURE = config("AI_TASK_TEMPERATURE", default=0.2, cast=float)
 
 # ==============================================================================
