@@ -15,9 +15,8 @@ class Command(BaseCommand):
 
     def handle(self, *args: Any, **options: Any) -> None:
         # Count BEFORE deleting because Django's QuerySet.delete() returns
-        # the total of all cascaded rows (Message + UserProfile + …), not
-        # the number of rows in the queryset itself. Pre-counting keeps the
-        # report honest.
+        # the total of all cascaded rows (Message + …), not the number of
+        # rows in the queryset itself. Pre-counting keeps the report honest.
         msg_count = Message.objects.filter(room__name__in=DEMO_ROOMS).count()
         room_count = Room.objects.filter(name__in=DEMO_ROOMS).count()
         usernames = [username for username, _ in DEMO_USERS]
