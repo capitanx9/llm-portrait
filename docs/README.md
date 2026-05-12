@@ -12,8 +12,9 @@ Project documentation, organised by audience.
 For someone calling the project from the outside.
 
 - [api/rest.md](api/rest.md) — REST endpoints (authentication, chat
-  rooms, portraits). Schema is generated at runtime by drf-spectacular
-  and served at `/api/docs/`.
+  rooms, AI processing). Live schema served at `/api/docs/`; the same
+  schema is committed at [`schemas/openapi.yaml`](../schemas/openapi.yaml)
+  for downstream codegen.
 - [api/ws.md](api/ws.md) — real-time WebSocket chat. AsyncAPI spec at
   [`schemas/asyncapi.yaml`](../schemas/asyncapi.yaml), pre-rendered
   HTML viewer at `/ws/docs/`.
@@ -23,9 +24,9 @@ For someone calling the project from the outside.
 ## Debugging
 
 For someone trying to figure out what the running stack is doing.
-See [debug/](debug/) for the full layout — split into
-`architecture/` (how the dev tooling is wired) and `workflow/`
-(how to use it).
+See [debug/README.md](debug/README.md) for the overview; the
+[workflow/](debug/workflow/) folder contains five numbered scenarios
+(setup → breakpoint → trace HTTP → trace WS → service map).
 
 ## Deployment
 

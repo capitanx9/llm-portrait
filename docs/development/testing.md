@@ -6,6 +6,7 @@ What's tested, what's mocked, and what conventions the test suite follows.
 
 - **[pytest](https://docs.pytest.org)** — runner.
 - **[pytest-django](https://pytest-django.readthedocs.io)** — `@pytest.mark.django_db`, `client` fixture, `mailoutbox` fixture, `settings` fixture.
+- **[pytest-asyncio](https://pytest-asyncio.readthedocs.io)** — `@pytest.mark.asyncio` for the WebSocket consumer tests.
 - **[pytest-cov](https://pytest-cov.readthedocs.io)** — coverage report (only invoked manually via `make test-cov`).
 - **[factory-boy](https://factoryboy.readthedocs.io)** + **[Faker](https://faker.readthedocs.io)** — model factories.
 
@@ -22,32 +23,32 @@ addopts = ["-ra", "--strict-markers", "--strict-config"]
 
 All tests live in [`tests/`](../../tests) at the repo root, **outside** `src/`. One file per domain:
 
-| File                       | Covers                                                          |
-|----------------------------|-----------------------------------------------------------------|
-| `test_health.py`           | `/health/` endpoint returns 200 + `{"status": "ok"}`.           |
-| `test_users_models.py`     | `User` / `UserProfile` / `UserFriends` models and signals.      |
-| `test_landing.py`          | `/` rendering, anon vs authenticated routing.                   |
-| `test_auth.py`             | allauth login / signup / logout, password validation, password-reset rendering. |
-| `test_portrait_views.py`   | `/portrait/` GET + POST, profile form validation.               |
-| `test_friends_views.py`    | `friend_add` and `friend_remove` views — happy path + edge cases (self, nonexistent, duplicate, others' rows). |
-| `test_email_tasks.py`      | Welcome email on signup, password-reset email, both via Celery eager mode. |
-| `test_llm.py`              | Prompt construction, Ollama call (mocked).                       |
-| `test_generate_view.py`    | `/portrait/generate/` endpoint — auth, happy path with mocked LLM, error path, rate limit. |
+| File                       | Covers                                                                |
+|----------------------------|-----------------------------------------------------------------------|
+| `test_health.py`           | Legacy `/health/` endpoint returns 200 + `{"status": "ok"}`.          |
+| `test_api.py`              | `/api/health/`, `/api/schema/`, `/api/docs/` reachability.            |
+| `test_users_models.py`     | `User.email` uniqueness.                                              |
+| `test_jwt_auth.py`         | Register, login, refresh, logout-then-reuse-fails, me-with-and-without-token. |
+| `test_chat_models.py`      | `Room` and `Message` model constraints, name validator.               |
+| `test_chat_rest.py`        | `RoomListCreateView`, `RoomMessagesView` — pagination, cursor, 401.   |
+| `test_chat_ws.py`          | `ChatConsumer` auth gate (rejects anon), broadcast, invalid JSON.     |
+| `test_chat_seeds.py`       | `seed_rooms` / `seed_messages` / `seed_all` / `flush_demo` idempotency. |
+| `test_ai_graph.py`         | LangGraph nodes (`detect_lang`, `translate`, `summarize`, `fallback`), routing, end-to-end view with mocked LLM. |
+| `test_email_tasks.py`      | Welcome email on register, via Celery eager mode.                     |
+| `test_access_log.py`       | `HttpAccessLogMiddleware` format, severity-by-status, body dump, redaction. |
 
-`conftest.py` is intentionally tiny — it just exposes the `client` fixture by name so test files can use it without importing.
+`conftest.py` is intentionally tiny — it exposes the `client` fixture and an autouse cache-clear fixture so rate-limit counters don't leak between tests.
 
 ## Factories
 
-`tests/factories.py` ships three factories:
+`tests/factories.py` ships one factory:
 
 - **`UserFactory`** — creates a `User`. Important details:
-  - `django_get_or_create = ("username",)` — coexists with the `post_save(User)` signal that auto-creates a profile. Without this, two factories with the same username would race the signal.
-  - `password` set via `factory.PostGenerationMethodCall("set_password", "password123")` — every factory user has the password `password123`.
+  - `django_get_or_create = ("username",)` — calling the factory twice with the same username returns the same row, which keeps `factory.Sequence`-based tests stable across re-runs in the same process.
+  - `skip_postgeneration_save = True` + a `post_generation` `password` hook — every factory user has the password `password123`. The hook calls `set_password(...)` and then `obj.save()` explicitly, avoiding factory-boy's deprecation warning about implicit saves.
   - Email auto-generated as `{username}@example.com`.
-- **`UserProfileFactory`** — `django_get_or_create = ("user",)`. Same reason as above: the signal already created an empty profile, so the factory updates it instead of inserting a duplicate.
-- **`UserFriendsFactory`** — straight subfactory pair.
 
-Tests almost always use `UserFactory` directly. `UserProfileFactory` is rarely needed because the auto-created profile is already there.
+There are no profile or friendship factories — the corresponding models were removed in #47.
 
 ## Conventions
 
@@ -57,7 +58,7 @@ Every test that touches the database has this marker (or takes the `db` fixture)
 
 ```python
 @pytest.mark.django_db
-def test_signup_creates_user_and_profile(client):
+def test_login_returns_token_pair(client):
     ...
 ```
 
@@ -69,44 +70,43 @@ The fix is `@pytest.mark.django_db(transaction=True)` — pytest-django then tru
 
 ```python
 @pytest.mark.django_db(transaction=True)
-def test_welcome_email_sent_on_signup(client, celery_eager):
+def test_welcome_email_sent_on_register(client, celery_eager):
     ...
 ```
 
-This is in `test_email_tasks.py::test_welcome_email_sent_on_signup`. Tests that don't depend on `on_commit` use the cheaper default.
+This is in `test_email_tasks.py`. Tests that don't depend on `on_commit` use the cheaper default.
 
 ### Section comments
 
-Test files group cases with `===`-bordered comment blocks:
-
-```python
-# ==============================================================================
-# Add
-# ==============================================================================
-
-@pytest.mark.django_db
-def test_friend_add_creates_friendship(client):
-    ...
-```
-
-This is purely a readability thing — the file scrolls cleanly when there are 5–10 tests in it.
+Test files group cases with `===`-bordered comment blocks. Purely a readability thing — keeps long files scrollable.
 
 ## What's mocked
 
 ### Ollama
 
-Every LLM-related test patches `app.users.views.generate_portrait` (or `app.users.llm.ChatOllama`) so no actual HTTP request to Ollama is ever made:
+Every LLM-related test patches at one of two levels — node-level for unit tests, view-level for end-to-end tests. No actual HTTP request to Ollama is ever made.
+
+**Node-level** (`test_ai_graph.py`, most cases): patch the `_make_llm` factory inside `app.ai.nodes` so each node receives a fake `ChatOllama` that returns canned content.
 
 ```python
-with patch("app.users.views.generate_portrait", return_value="test description"):
-    response = client.post("/portrait/generate/")
+from app.ai import nodes
+
+with patch.object(nodes, "_make_llm", return_value=_llm_returning("en")):
+    result = detect_lang_node(state)
 ```
 
-CI doesn't have Ollama available — and even if it did, real generation is too slow for unit tests (1–3 min per call).
+**View-level** (`test_ai_graph.py`, end-to-end cases): patch `run_graph` itself when the test only cares about the view's behaviour around the graph (request validation, rate-limit, response shape).
+
+```python
+with patch("app.ai.views.run_graph", return_value={"action": "translate", "translation": "hi"}):
+    response = client.post("/api/ai/process/", ...)
+```
+
+CI doesn't have Ollama available — and even if it did, real generation is too slow for unit tests (1–10s warm, 30–60s cold).
 
 ### Celery
 
-A `celery_eager` fixture in `test_email_tasks.py` and `test_generate_view.py` flips the runtime to "execute tasks synchronously":
+The `celery_eager` fixture in `test_email_tasks.py` flips the runtime to "execute tasks synchronously":
 
 ```python
 @pytest.fixture
@@ -120,35 +120,23 @@ def celery_eager(settings):
 
 This means the Celery worker is **never started** in tests. We're testing that the task gets enqueued and that its body works — not that the broker delivers it.
 
+### Channels layer (WebSocket)
+
+`test_chat_ws.py` overrides `CHANNEL_LAYERS` to `InMemoryChannelLayer` so the WS tests don't need a real Redis. `WebsocketCommunicator` from `channels.testing` drives the consumer directly through ASGI.
+
 ### Redis cache (rate limit)
 
-`test_generate_view.py` has an autouse fixture that flushes the cache before and after each test:
+`conftest.py` ships an autouse fixture that flushes the cache before and after each test:
 
 ```python
 @pytest.fixture(autouse=True)
-def clear_ratelimit_cache():
+def clear_cache():
     cache.clear()
     yield
     cache.clear()
 ```
 
-Without this, the rate-limit counter accumulates across tests and `test_generate_rate_limit_after_3_calls` becomes flaky.
-
-### `request.user`-cached related objects
-
-After `profile.save()` you might still see stale data via `user.profile.<field>`, because Django caches the related object on the user instance. Inside tests this looks like "I just saved arcana=magician but the prompt builder still sees blank".
-
-The fix is `user.refresh_from_db()` between the save and the read:
-
-```python
-profile.arcana = "magician"
-profile.save()
-
-user.refresh_from_db()
-prompt = build_portrait_prompt(user)
-```
-
-This is documented in `test_llm.py::test_build_portrait_prompt_includes_all_fields`.
+Without this, the per-user rate-limit counter on `/api/ai/process/` accumulates across tests and the rate-limit assertion becomes flaky depending on test order.
 
 ## Coverage
 
@@ -166,7 +154,7 @@ Run with:
 make test-cov
 ```
 
-There is **no enforced coverage gate** in CI — tests must pass, but coverage % is informational. The current suite covers the "does it work" surface (models, views, signals, tasks) and skips obvious dead-on-arrival paths (admin auto-renderers, error 500 handlers).
+There is **no enforced coverage gate** in CI — tests must pass, but coverage % is informational. The current suite covers the "does it work" surface (models, views, signals, tasks, consumers, graph) and skips obvious dead-on-arrival paths (admin auto-renderers, error 500 handlers).
 
 ## Running tests locally
 
@@ -181,10 +169,10 @@ make test
 make test-cov
 
 # Run a single file.
-docker compose -f docker-compose.dev.yml exec web python -m pytest tests/test_llm.py -v
+docker compose -f docker-compose.dev.yml exec web python -m pytest tests/test_ai_graph.py -v
 
 # Run a single test.
-docker compose -f docker-compose.dev.yml exec web python -m pytest tests/test_llm.py::test_generate_portrait_calls_ollama -v
+docker compose -f docker-compose.dev.yml exec web python -m pytest tests/test_chat_ws.py::test_anonymous_connect_rejected -v
 ```
 
 ## Running tests in CI
