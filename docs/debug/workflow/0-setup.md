@@ -38,9 +38,12 @@ loaded and `{{access_token}}` is populated.
 
 ```bash
 make flush-demo    # remove only seeded users / rooms / messages
-make reset-db      # nuclear: drop volumes, rebuild, re-migrate
+make reset-db      # wipe Postgres only (keeps Ollama model + Redis)
+make reset-ollama  # wipe the Llama model (~2 GB re-pull on next AI call)
+make reset-redis   # restart Redis (flushes cache + Channels groups + Celery queue)
+make reset-all     # nuclear: drop all volumes, rebuild, re-pull model
 ```
 
 `flush-demo` leaves real data alone (filters by demo usernames /
-room names). `reset-db` drops `pgdata` and `ollama_data` volumes —
-destructive, prints a warning and sleeps 3s before running.
+room names). Each `reset-*` target prompts with a 3-second cancel
+window before destruction.
