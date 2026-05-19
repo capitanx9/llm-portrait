@@ -1,0 +1,7 @@
+# GitHub will request a review from these owners on every pull request
+# that touches a matching path. Adding a path-specific line below this
+# default catches everything.
+#
+# Reference: https://docs.github.com/en/repositories/managing-your-repositories-settings-and-security/customizing-your-repository/about-code-owners
+
+* @mashincode

@@ -74,3 +74,7 @@ If you forget and add another commit on the just-merged branch, then try to open
 7. Once green, squash-merge via GitHub UI. Delete the branch.
 8. Wait for CD to finish (~3–5 minutes). Confirm the four-path smoke-test in the CD output is green (see [`ci-cd.md`](./ci-cd.md) for what it covers).
 9. If the change touched `.env` semantics (new var, renamed key), edit `.env` on the box manually — secrets live there, not in git — and recreate the affected containers. `docker-compose.prod.yml` and `docker/nginx.conf` are auto-synced by CD on every deploy; see [`deployment/ec2.md`](../deployment/ec2.md) §11.
+
+## Code review
+
+Pull requests are reviewed by [@mashincode](https://github.com/mashincode) (auto-requested via [`../../.github/CODEOWNERS`](../../.github/CODEOWNERS)).
