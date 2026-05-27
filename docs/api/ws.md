@@ -13,6 +13,17 @@ Production: `wss://llm-portrait.gotdns.ch/ws/`.
 The viewer is pre-rendered offline by `make asyncapi-build` and served
 as a static file. CI runs `make asyncapi-validate` on every PR.
 
+## Origin validation
+
+The ASGI stack wraps the WebSocket router in Channels'
+[`OriginValidator`](https://channels.readthedocs.io/en/latest/topics/security.html#websocket-origin-validation),
+which whitelists handshakes by the `Origin` header (scheme + host +
+port). The allow-list is `WS_ALLOWED_ORIGINS` in `.env` —
+comma-separated, same shape as `CORS_ALLOWED_ORIGINS`. Dev defaults
+to `http://localhost:5173,http://127.0.0.1:5173` (Vite's default).
+Handshakes from an origin outside the list are refused with HTTP
+403 before any auth runs.
+
 ## Authentication
 
 JWT access token in the query string on the upgrade URL:

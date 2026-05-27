@@ -265,3 +265,19 @@ CORS_ALLOWED_ORIGINS = config(
     default="",
     cast=lambda v: [s.strip() for s in v.split(",") if s.strip()],
 )
+
+# ==============================================================================
+# WebSocket Origin allow-list
+# ==============================================================================
+#
+# Channels' OriginValidator whitelists handshakes by the Origin header
+# (scheme + host + port). The frontend lives on a separate origin
+# (CloudFront), so a wildcard is not an option — the list is explicit.
+# Empty list rejects every cross-origin handshake; same-origin (Origin
+# header equal to Host) is always allowed by OriginValidator itself.
+
+WS_ALLOWED_ORIGINS = config(
+    "WS_ALLOWED_ORIGINS",
+    default="",
+    cast=lambda v: [s.strip() for s in v.split(",") if s.strip()],
+)

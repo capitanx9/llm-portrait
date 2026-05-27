@@ -1,13 +1,39 @@
 import pytest
 from channels.db import database_sync_to_async
+from channels.routing import ProtocolTypeRouter, URLRouter
+from channels.security.websocket import OriginValidator
 from channels.testing import WebsocketCommunicator
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from app.chat.models import Message, Room
-from app.config.asgi import application
+from app.ws.middleware import JWTAuthMiddleware, RequestIdMiddleware
+from app.ws.routing import websocket_urlpatterns
 from tests.factories import UserFactory
 
 IN_MEMORY_LAYER = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
+
+
+def _app_with_origins(allowed_origins: list[str]):
+    """Build an ASGI application with an explicit OriginValidator allow-list.
+
+    The module-level `app.config.asgi.application` is bound to
+    settings.WS_ALLOWED_ORIGINS at import time, so tests build their own to
+    parametrise the allow-list per case. Origin-validation tests pass an
+    explicit list; the rest of the suite uses ['*'] so behaviour matches the
+    pre-PR baseline where any Origin (or no Origin) was accepted.
+    """
+    return ProtocolTypeRouter(
+        {
+            "websocket": OriginValidator(
+                RequestIdMiddleware(JWTAuthMiddleware(URLRouter(websocket_urlpatterns))),
+                allowed_origins,
+            ),
+        }
+    )
+
+
+# Default app for tests that don't care about Origin validation — accepts any.
+_default_app = _app_with_origins(["*"])
 
 
 @database_sync_to_async
@@ -27,7 +53,7 @@ async def _connect(name: str, token: str | None = None) -> WebsocketCommunicator
     path = f"/ws/chat/{name}/"
     if token:
         path = f"{path}?token={token}"
-    return WebsocketCommunicator(application, path)
+    return WebsocketCommunicator(_default_app, path)
 
 
 # ==============================================================================
@@ -172,6 +198,44 @@ async def test_ws_invalid_json_returns_error_frame(settings) -> None:
     assert follow_up["text"] == "after recovery"
 
     await a.disconnect()
+
+
+# ==============================================================================
+# Origin validation
+# ==============================================================================
+
+
+@pytest.mark.django_db(transaction=True)
+async def test_ws_rejects_disallowed_origin(settings) -> None:
+    settings.CHANNEL_LAYERS = IN_MEMORY_LAYER
+    _, token = await _make_user_and_token("alice")
+
+    app = _app_with_origins(["https://app.example.com"])
+    communicator = WebsocketCommunicator(
+        app,
+        f"/ws/chat/general/?token={token}",
+        headers=[(b"origin", b"https://evil.example.com")],
+    )
+    connected, _ = await communicator.connect()
+
+    assert connected is False
+
+
+@pytest.mark.django_db(transaction=True)
+async def test_ws_accepts_allowed_origin(settings) -> None:
+    settings.CHANNEL_LAYERS = IN_MEMORY_LAYER
+    _, token = await _make_user_and_token("alice")
+
+    app = _app_with_origins(["http://localhost:5173"])
+    communicator = WebsocketCommunicator(
+        app,
+        f"/ws/chat/general/?token={token}",
+        headers=[(b"origin", b"http://localhost:5173")],
+    )
+    connected, _ = await communicator.connect()
+
+    assert connected is True
+    await communicator.disconnect()
 
 
 # ==============================================================================
