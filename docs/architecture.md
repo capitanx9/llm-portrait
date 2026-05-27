@@ -85,7 +85,7 @@ Code lives in [`src/app/`](../src/app). The Django project is `app.config`. Feat
 
 ### `ws`
 
-Same image as `web`, started with `python -m daphne -b 0.0.0.0 -p 8001 app.config.asgi:application`. Hosts the ASGI app: the WebSocket consumer at `/ws/chat/<name>/` plus the static AsyncAPI viewer at `/ws/docs/`. Auth happens in the ASGI middleware stack (`JWTAuthMiddleware` reads `?token=…` from the query string and sets `scope["user"]`); the consumer rejects unauthenticated upgrades by closing before `accept()`, which surfaces as HTTP 403 to the client.
+Same image as `web`, started with `python -m daphne -b 0.0.0.0 -p 8001 app.config.asgi:application`. Hosts the ASGI app: the WebSocket consumer at `/ws/chat/<name>/` plus the static AsyncAPI viewer at `/ws/docs/`. Middleware stack on the websocket protocol: `OriginValidator → RequestIdMiddleware → JWTAuthMiddleware → URLRouter`. `OriginValidator` (Channels' built-in) whitelists handshakes by the `Origin` header against `WS_ALLOWED_ORIGINS`; cross-origin requests from anywhere outside the list are refused with HTTP 403 before auth runs. `JWTAuthMiddleware` reads `?token=…` from the query string and sets `scope["user"]`; the consumer rejects unauthenticated upgrades by closing before `accept()`, which surfaces as HTTP 403 to the client.
 
 Lives separately from `web` because daphne and gunicorn have different process models (event-loop vs. forked workers) and Django doesn't recommend running both inside one container.
 
