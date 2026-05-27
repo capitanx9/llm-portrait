@@ -1,0 +1,33 @@
+meta {
+  name: Add reaction
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{base_http}}/api/chat/messages/{{message_id}}/reactions/
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "emoji": "👍"
+  }
+}
+
+docs {
+  Add an emoji reaction to a message. Idempotent: a second POST with the
+  same emoji returns 200 instead of 201 and does not duplicate the row.
+
+  Run `Get room messages` first to copy a real `id` into the `message_id`
+  environment variable.
+}

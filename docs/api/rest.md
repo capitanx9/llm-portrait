@@ -56,6 +56,8 @@ the WebSocket side in one collection. The login script auto-injects
 | `/api/auth/me/` | GET | Current user |
 | `/api/chat/rooms/` | GET, POST | List or create rooms |
 | `/api/chat/rooms/<name>/messages/` | GET | Paginated room history |
+| `/api/chat/messages/<id>/reactions/` | POST | Add an emoji reaction (idempotent) |
+| `/api/chat/messages/<id>/reactions/<emoji>/` | DELETE | Remove own reaction (idempotent) |
 | `/api/ai/process/` | POST | Translate or summarize via LangGraph |
 | `/api/health/` | GET | Liveness probe |
 

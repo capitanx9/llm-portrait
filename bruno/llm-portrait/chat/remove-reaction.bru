@@ -1,0 +1,20 @@
+meta {
+  name: Remove reaction
+  type: http
+  seq: 5
+}
+
+delete {
+  url: {{base_http}}/api/chat/messages/{{message_id}}/reactions/👍/
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+docs {
+  Remove the requesting user's reaction with the given emoji. Idempotent:
+  204 even if the reaction does not exist, so the client can blind-DELETE
+  on chip click without first checking state.
+}

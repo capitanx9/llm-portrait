@@ -33,3 +33,20 @@ class Message(models.Model):
 
     def __str__(self) -> str:
         return f"{self.sender.username} in {self.room.name}: {self.text[:40]}"
+
+
+class MessageReaction(models.Model):
+    message = models.ForeignKey(Message, related_name="reactions", on_delete=models.CASCADE)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, related_name="reactions", on_delete=models.CASCADE
+    )
+    # 8 chars fits emoji-with-modifiers (ZWJ sequences like 👨‍👩‍👧).
+    emoji = models.CharField(max_length=8)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [("message", "user", "emoji")]
+        indexes = [models.Index(fields=["message", "emoji"])]
+
+    def __str__(self) -> str:
+        return f"{self.user.username} {self.emoji} on message #{self.message_id}"
