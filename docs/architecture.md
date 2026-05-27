@@ -71,6 +71,8 @@ The prod compose adds two services on top of dev: `nginx` and `certbot`. `nginx`
 
 Mailhog is kept on prod intentionally — the demo doesn't need real outbound mail, and the UI gives a quick way to verify that emails are sent during a review session. Replacing it with SES/Postmark is a single env-var change (`EMAIL_HOST` / `EMAIL_BACKEND`).
 
+The production frontend lives on a separate origin (CloudFront), not on the same host as the backend. REST and WebSocket are still served from `llm-portrait.gotdns.ch`; static assets are served from `*.cloudfront.net`. The split is intentional — see [`deployment/frontend.md`](deployment/frontend.md) for the CORS + WS-origin configuration and the DNS rationale behind the raw CloudFront URL.
+
 See [`docker-compose.prod.yml`](../docker-compose.prod.yml) and [`docker/nginx.conf`](../docker/nginx.conf) for the full definitions.
 
 ## Service-by-service

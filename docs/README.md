@@ -34,6 +34,9 @@ For someone running the project on a server or laptop.
 
 - [deployment/local.md](deployment/local.md) — local Docker-compose setup.
 - [deployment/ec2.md](deployment/ec2.md) — production AWS EC2 deploy.
+- [deployment/frontend.md](deployment/frontend.md) — split-origin
+  wiring with the frontend (CloudFront), CORS / WS-origin env vars,
+  DNS rationale for the raw CloudFront URL.
 
 ## Development
 
