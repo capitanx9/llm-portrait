@@ -206,6 +206,76 @@ paths:
               schema:
                 $ref: '#/components/schemas/Register'
           description: ''
+  /api/chat/messages/{id}/reactions/:
+    post:
+      operationId: chat_messages_reactions_create
+      description: |-
+        POST /api/chat/messages/<pk>/reactions/ — add a reaction.
+
+        Idempotent: a second POST with the same emoji from the same user
+        returns 200 instead of 201 and does not create a duplicate row
+        (enforced by the unique_together on the model).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - chat
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageReaction'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MessageReaction'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MessageReaction'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageReaction'
+          description: ''
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageReaction'
+          description: ''
+  /api/chat/messages/{id}/reactions/{emoji}/:
+    delete:
+      operationId: chat_messages_reactions_destroy
+      description: |-
+        DELETE /api/chat/messages/<pk>/reactions/<emoji>/ — remove own reaction.
+
+        Idempotent: 204 even when the reaction doesn't exist, so the client can
+        issue a blind DELETE on chip click without first checking state.
+      parameters:
+      - in: path
+        name: emoji
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - chat
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/chat/rooms/:
     get:
       operationId: chat_rooms_list
@@ -393,11 +463,26 @@ components:
           type: string
           format: date-time
           readOnly: true
+        reactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReactionAggregate'
+          readOnly: true
       required:
       - created_at
       - id
+      - reactions
       - sender
       - text
+    MessageReaction:
+      type: object
+      properties:
+        emoji:
+          type: string
+          maxLength: 8
+          minLength: 1
+      required:
+      - emoji
     PaginatedMessageList:
       type: object
       required:
@@ -476,6 +561,20 @@ components:
       required:
       - action
       - source_language
+    ReactionAggregate:
+      type: object
+      description: Shape of one entry in the `reactions` array on a message.
+      properties:
+        emoji:
+          type: string
+        count:
+          type: integer
+        me:
+          type: boolean
+      required:
+      - count
+      - emoji
+      - me
     Register:
       type: object
       properties:
